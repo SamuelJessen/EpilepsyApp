@@ -1,17 +1,28 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="EpilepsyApp.MainPage">
+             x:Class="EpilepsyApp.MainPage"
+             xmlns:viewmodel="clr-namespace:EpilepsyApp.ViewModel"
+             x:DataType="viewmodel:MainViewModel"
+             Title="">
 
-    <Grid RowDefinitions="100, Auto, *"
-      ColumnDefinitions=".75*, 25*"
-      Padding="10">
-        <Image Grid.ColumnSpan="2"
-           Source="cortrium.png"
-           BackgroundColor="White"/>
+    <ScrollView>
+        <VerticalStackLayout Spacing="50" 
+            Padding="20,0" VerticalOptions="Start">
+            <Image Source="cortrium.png"  HeightRequest="100" HorizontalOptions="Center" Margin="0,50,0,0" />
 
-
-    </Grid>
-    
-    
+            <StackLayout>
+                <VerticalStackLayout Margin="5">
+                    <Label Text="Login" FontSize="15" Margin="5"/>
+                    <Entry x:Name="UsernameEntry" Placeholder="Enter Username" Text="{Binding Username}" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Margin="5">
+                    <Entry x:Name="PasswordEntry"  Placeholder="Enter Password" Text="{Binding Password}" />
+                </VerticalStackLayout>
+                <Button Text="Login" 
+                        Margin="5"
+                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodel:MainViewModel}}, Path=LoginCommand}"/> 
+            </StackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
 </ContentPage>
