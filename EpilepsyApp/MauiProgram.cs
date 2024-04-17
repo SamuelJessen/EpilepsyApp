@@ -1,5 +1,6 @@
 ﻿using EpilepsyApp.ViewModel;
 using Microsoft.Extensions.Logging;
+using SkiaSharp.Views.Maui.Controls.Hosting;
 
 namespace EpilepsyApp
 {
@@ -9,6 +10,7 @@ namespace EpilepsyApp
 		{
 			var builder = MauiApp.CreateBuilder();
 			builder
+            .UseSkiaSharp(true)
                 .UseMauiApp<App>()
 				.ConfigureFonts(fonts =>
 				{

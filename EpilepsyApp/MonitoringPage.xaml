@@ -4,12 +4,27 @@
              x:Class="EpilepsyApp.MonitoringPage"
              xmlns:viewmodel="clr-namespace:EpilepsyApp.ViewModel"
              x:DataType="viewmodel:MonitoringViewModel"
+             xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Maui;assembly=LiveChartsCore.SkiaSharpView.Maui"
+             xmlns:vms="clr-namespace:EpilepsyApp.ViewModel;assembly=EpilepsyApp"
              Title="">
-   <ScrollView>
-      <VerticalStackLayout Spacing="0" 
-                           Padding="20,0" VerticalOptions="Start">
-         <Label VerticalOptions="End"
-                HorizontalOptions="End">
+   <ContentPage.BindingContext>
+      <vms:MonitoringViewModel/>
+   </ContentPage.BindingContext>
+      <ContentPage.Content>
+         <Grid>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="20"/>
+               <RowDefinition Height="60"/>
+               <RowDefinition Height="40"/>
+               <RowDefinition Height="300"/>
+               <RowDefinition Height="100"/>
+               <RowDefinition Height="165"/>  
+               <RowDefinition Height="60"/>
+            </Grid.RowDefinitions>
+         <Label VerticalOptions="Start"
+                HorizontalOptions="End"
+                Grid.Row="0"
+                Margin="0,0,10,0">
             <Label.FormattedText>
                <FormattedString>
                   <Span Text="User: " />
@@ -17,15 +32,21 @@
                </FormattedString>
             </Label.FormattedText>
          </Label>
-
-         <Image Source="cortrium.png" Grid.Row="0"  HeightRequest="100" HorizontalOptions="Center" Margin="0,0,0,0" />
-
-         <Button Text="Logout"
+            <Image Source="cortrium.png" Grid.Row="1" HeightRequest="70" HorizontalOptions="Center" VerticalOptions="Start" Margin="0,0,0,0" />
+            <Label Text="{Binding EcgChannel}" Grid.Row="2" VerticalOptions="Start" HorizontalOptions="Center" Margin="10,20,0,-10"/>
+            <lvc:CartesianChart Grid.Row="3" Margin="10" Series="{Binding Series}" SyncContext="{Binding Sync}" XAxes="{Binding XAxes}"></lvc:CartesianChart>
+         <Button Text="Connect Device" 
+                 Grid.Row="4"
+                 Margin="0"
                  VerticalOptions="End"
-                 HorizontalOptions="End"
-                 Grid.Row="1"
-                 Command="{Binding LogoutCommand}"/>
-
-      </VerticalStackLayout>
-   </ScrollView>
+                 HorizontalOptions="Center"/>
+            <Button Text="Logout"
+                    VerticalOptions="End"
+                    HorizontalOptions="End"
+                    Grid.Row="6"
+                    Margin="10"
+                    Command="{Binding LogoutCommand}"/>
+         
+         </Grid>
+      </ContentPage.Content>
 </ContentPage>
