@@ -6,8 +6,7 @@
              x:DataType="viewmodel:MonitoringViewModel"
              xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Maui;assembly=LiveChartsCore.SkiaSharpView.Maui"
              Title="">
-
-      <ContentPage.Content>
+    <ContentPage.Content>
          <Grid>
             <Grid.RowDefinitions>
                <RowDefinition Height="20"/>

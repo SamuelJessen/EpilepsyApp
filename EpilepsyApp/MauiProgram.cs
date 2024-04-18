@@ -22,14 +22,15 @@ namespace EpilepsyApp
 #if DEBUG
 			builder.Logging.AddDebug();
 #endif
-         //builder.Services.AddSingleton<BLEservice>();
-         builder.Services.AddSingleton<MainPage>();
-         builder.Services.AddSingleton<MainViewModel>();
+			builder.Services.AddSingleton<BLEservice>();
+			builder.Services.AddSingleton<MainPage>();
+			builder.Services.AddSingleton<MainViewModel>();
 
-         builder.Services.AddTransient<MonitoringPage>();
-         builder.Services.AddTransient<MonitoringViewModel>();
+			builder.Services.AddSingleton<MonitoringPage>();
+			builder.Services.AddSingleton<MonitoringViewModel>();
+            builder.Services.AddSingleton<IDecoder, DecodingByteArray>();
 
-			return builder.Build();
+            return builder.Build();
 		}
 	}
 }

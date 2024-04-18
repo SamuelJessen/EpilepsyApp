@@ -6,11 +6,11 @@ namespace EpilepsyApp
 {
 	public partial class MainPage : ContentPage
 	{
-      public MainPage(MainViewModel vm)
+		public MainPage(MainViewModel vm)
 		{
 			InitializeComponent();
-         BindingContext = vm;
-      }
+			BindingContext = vm;
+		}
 	}
 
 }

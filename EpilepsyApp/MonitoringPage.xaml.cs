@@ -7,6 +7,6 @@ public partial class MonitoringPage : ContentPage
 	public MonitoringPage(MonitoringViewModel vm)
 	{
 		InitializeComponent();
-      BindingContext = vm;
-   }
+		BindingContext = vm;
+	}
 }
