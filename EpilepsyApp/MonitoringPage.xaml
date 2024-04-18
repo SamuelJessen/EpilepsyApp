@@ -5,11 +5,8 @@
              xmlns:viewmodel="clr-namespace:EpilepsyApp.ViewModel"
              x:DataType="viewmodel:MonitoringViewModel"
              xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Maui;assembly=LiveChartsCore.SkiaSharpView.Maui"
-             xmlns:vms="clr-namespace:EpilepsyApp.ViewModel;assembly=EpilepsyApp"
              Title="">
-   <ContentPage.BindingContext>
-      <vms:MonitoringViewModel/>
-   </ContentPage.BindingContext>
+
       <ContentPage.Content>
          <Grid>
             <Grid.RowDefinitions>
@@ -39,7 +36,8 @@
                  Grid.Row="4"
                  Margin="0"
                  VerticalOptions="End"
-                 HorizontalOptions="Center"/>
+                 HorizontalOptions="Center"
+                 Command="{Binding ScanDevicesCommand}"/>
             <Button Text="Logout"
                     VerticalOptions="End"
                     HorizontalOptions="End"

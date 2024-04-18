@@ -1,4 +1,5 @@
-﻿using EpilepsyApp.ViewModel;
+﻿using EpilepsyApp.Services;
+using EpilepsyApp.ViewModel;
 using Microsoft.Extensions.Logging;
 using SkiaSharp.Views.Maui.Controls.Hosting;
 
@@ -11,7 +12,7 @@ namespace EpilepsyApp
 			var builder = MauiApp.CreateBuilder();
 			builder
             .UseSkiaSharp(true)
-                .UseMauiApp<App>()
+            .UseMauiApp<App>()
 				.ConfigureFonts(fonts =>
 				{
 					fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -21,6 +22,7 @@ namespace EpilepsyApp
 #if DEBUG
 			builder.Logging.AddDebug();
 #endif
+         //builder.Services.AddSingleton<BLEservice>();
          builder.Services.AddSingleton<MainPage>();
          builder.Services.AddSingleton<MainViewModel>();
 
