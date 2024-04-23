@@ -4,6 +4,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EpilepsyApp.CortrumDevice;
 using EpilepsyApp.DTO;
+using EpilepsyApp.Events;
+using EpilepsyApp.Models;
 using EpilepsyApp.Services;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
@@ -72,7 +74,8 @@ namespace EpilepsyApp.ViewModel
 
 			XAxes = new Axis[] { _customAxis };
 
-			_ = ReadData();
+
+			decoder.ECGDataReceivedEvent += HandleECGDataReceivedEvent;
 		}
 
 		public ObservableCollection<ISeries> Series { get; set; }
@@ -83,28 +86,28 @@ namespace EpilepsyApp.ViewModel
 
 		public bool IsReading { get; set; } = true;
 
-		private async Task ReadData()
-		{
-			// to keep this sample simple, we run the next infinite loop 
-			// in a real application you should stop the loop/task when the view is disposed 
+		//private async Task ReadData()
+		//{
+		//	// to keep this sample simple, we run the next infinite loop 
+		//	// in a real application you should stop the loop/task when the view is disposed 
 
-			while (IsReading)
-			{
-				await Task.Delay(100);
+		//	//while (IsReading)
+		//	//{
+		//	//	await Task.Delay(100);
 
-				// Because we are updating the chart from a different thread 
-				// we need to use a lock to access the chart data. 
-				// this is not necessary if your changes are made in the UI thread. 
-				lock (Sync)
-				{
-					_values.Add(new DateTimePoint(DateTime.Now, _random.Next(0, 10)));
-					if (_values.Count > 250) _values.RemoveAt(0);
+		//	//	// Because we are updating the chart from a different thread 
+		//	//	// we need to use a lock to access the chart data. 
+		//	//	// this is not necessary if your changes are made in the UI thread. 
+		//	//	lock (Sync)
+		//	//	{
+		//	//		_values.Add(new DateTimePoint(DateTime.Now, _random.Next(0, 10)));
+		//	//		if (_values.Count > 250) _values.RemoveAt(0);
 
-					// we need to update the separators every time we add a new point 
-					_customAxis.CustomSeparators = GetSeparators();
-				}
-			}
-		}
+		//	//		// we need to update the separators every time we add a new point 
+		//	//		_customAxis.CustomSeparators = GetSeparators();
+		//	//	}
+		//	//}
+		//}
 
 		private double[] GetSeparators()
 		{
@@ -115,8 +118,8 @@ namespace EpilepsyApp.ViewModel
 			now.AddSeconds(-25).Ticks,
 			now.AddSeconds(-20).Ticks,
 			now.AddSeconds(-15).Ticks,
-			now.AddSeconds(-10).Ticks,
 			now.AddSeconds(-5).Ticks,
+			now.AddSeconds(-2).Ticks,
 			now.Ticks
 			};
 		}
@@ -157,16 +160,16 @@ namespace EpilepsyApp.ViewModel
 				}
 
 #if ANDROID
-            PermissionStatus permissionStatus = await BLEservice.CheckBluetoothPermissions();
-            if (permissionStatus != PermissionStatus.Granted)
-            {
-                permissionStatus = await BLEservice.RequestBluetoothPermissions();
-                if (permissionStatus != PermissionStatus.Granted)
-                {
-                    await Shell.Current.DisplayAlert($"Bluetooth LE permissions", $"Bluetooth LE permissions are not granted.", "OK");
-                    return;
-                }
-            }
+				PermissionStatus permissionStatus = await BLEservice.CheckBluetoothPermissions();
+				if (permissionStatus != PermissionStatus.Granted)
+				{
+					permissionStatus = await BLEservice.RequestBluetoothPermissions();
+					if (permissionStatus != PermissionStatus.Granted)
+					{
+						await Shell.Current.DisplayAlert($"Bluetooth LE permissions", $"Bluetooth LE permissions are not granted.", "OK");
+						return;
+					}
+				}
 #elif IOS
 #elif WINDOWS
 #endif
@@ -363,24 +366,17 @@ namespace EpilepsyApp.ViewModel
 		{
 			try
 			{
-				if (_measurementIsStarted == false) //start measurement button has not been clicked yet
-				{
-					return;
-				}
-				else //start measurement button is clicked and text should now be "Stop measurement"
-				{
-					var bytes = e.Characteristic.Value;//byte array, with raw data to be sent to CSSURE
-					sbyte[] bytessigned = Array.ConvertAll(bytes, x => unchecked((sbyte)x));
-					var time = DateTimeOffset.Now.LocalDateTime;
+				var bytes = e.Characteristic.Value;//byte array, with raw data to be sent to CSSURE
+				sbyte[] bytessigned = Array.ConvertAll(bytes, x => unchecked((sbyte)x));
+				var time = DateTimeOffset.Now.LocalDateTime;
 
-					await Task.Run(() => decoder.DecodeBytes(bytessigned));
+				var decoded_data = decoder.DecodeBytes(bytessigned);
 
-					//Add the newest sample to the list
-					EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, Timestamp = time };
-					EKGSamples.Add(item);
+				//Add the newest sample to the list
+				EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, Timestamp = time };
+				EKGSamples.Add(item);
 
-					_ = sendDataAsync(item);
-				}
+				_ = sendDataAsync(decoded_data);
 			}
 			catch (Exception ex)
 			{
@@ -388,11 +384,35 @@ namespace EpilepsyApp.ViewModel
 			}
 		}
 
-		private async Task sendDataAsync(EKGSampleDTO item)
+		private async Task sendDataAsync(ECGBatchData item)
 		{
 
 			//await Task.Run(() => mqttService.Publish_RawData(item));
 		}
 
+		private void HandleECGDataReceivedEvent(object sender, ECGDataReceivedEventArgs e)
+		{
+			lock (Sync)
+			{
+				try
+				{
+					int ecg1 = (e.ECGBatch.ECGChannel1[0] + e.ECGBatch.ECGChannel1[1] + e.ECGBatch.ECGChannel1[2] + e.ECGBatch.ECGChannel1[3] + e.ECGBatch.ECGChannel1[4] + e.ECGBatch.ECGChannel1[5]) / 6;
+					int ecg2 = (e.ECGBatch.ECGChannel1[6] + e.ECGBatch.ECGChannel1[7] + e.ECGBatch.ECGChannel1[8] + e.ECGBatch.ECGChannel1[9] + e.ECGBatch.ECGChannel1[10] + e.ECGBatch.ECGChannel1[11]) / 6;
+
+					_values.Add(new DateTimePoint(DateTime.Now, ecg1));
+					_values.Add(new DateTimePoint(DateTime.Now, ecg2));
+
+					if (_values.Count > 125) _values.RemoveAt(0);
+
+					// we need to update the separators every time we add a new point 
+					_customAxis.CustomSeparators = GetSeparators();
+
+				}
+				catch (Exception ex)
+				{
+					Debug.WriteLine(ex.Message + ": Adding to ECGSamples failed in MeasurementPageViewModel, ECGSamples count: " + _values.Count);
+				}
+			}
+		}
 	}
 }

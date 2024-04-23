@@ -30,7 +30,7 @@
          </Label>
             <Image Source="cortrium.png" Grid.Row="1" HeightRequest="70" HorizontalOptions="Center" VerticalOptions="Start" Margin="0,0,0,0" />
             <Label Text="{Binding EcgChannel}" Grid.Row="2" VerticalOptions="Start" HorizontalOptions="Center" Margin="10,20,0,-10"/>
-            <lvc:CartesianChart Grid.Row="3" Margin="10" Series="{Binding Series}" SyncContext="{Binding Sync}" XAxes="{Binding XAxes}"></lvc:CartesianChart>
+			<lvc:CartesianChart Grid.Row="3" Margin="10" Series="{Binding Series}" SyncContext="{Binding Sync}" XAxes="{Binding XAxes}"></lvc:CartesianChart>
          <Button Text="Connect Device" 
                  Grid.Row="4"
                  Margin="0"
