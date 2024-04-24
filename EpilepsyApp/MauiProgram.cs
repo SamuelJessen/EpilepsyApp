@@ -11,8 +11,8 @@ namespace EpilepsyApp
 		{
 			var builder = MauiApp.CreateBuilder();
 			builder
-            .UseSkiaSharp(true)
-            .UseMauiApp<App>()
+			.UseSkiaSharp(true)
+			.UseMauiApp<App>()
 				.ConfigureFonts(fonts =>
 				{
 					fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -22,15 +22,16 @@ namespace EpilepsyApp
 #if DEBUG
 			builder.Logging.AddDebug();
 #endif
+			builder.Services.AddSingleton<IMQTTService, MqttService>();
 			builder.Services.AddSingleton<BLEservice>();
 			builder.Services.AddSingleton<MainPage>();
 			builder.Services.AddSingleton<MainViewModel>();
 
 			builder.Services.AddSingleton<MonitoringPage>();
 			builder.Services.AddSingleton<MonitoringViewModel>();
-            builder.Services.AddSingleton<IDecoder, DecodingByteArray>();
+			builder.Services.AddSingleton<IDecoder, DecodingByteArray>();
 
-            return builder.Build();
+			return builder.Build();
 		}
 	}
 }

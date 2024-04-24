@@ -37,12 +37,19 @@
                  VerticalOptions="End"
                  HorizontalOptions="Center"
                  Command="{Binding ScanDevicesCommand}"/>
-            <Button Text="Logout"
-                    VerticalOptions="End"
-                    HorizontalOptions="End"
-                    Grid.Row="6"
-                    Margin="10"
-                    Command="{Binding LogoutCommand}"/>
+			<Button Text="Start monitoring" 
+			Grid.Row="5"
+			Margin="0"
+			VerticalOptions="End"
+			HorizontalOptions="Center"
+			Command="{Binding OnStartMeasurementClickedCommand}"/>
+			 
+			<Button Text="Logout"
+					VerticalOptions="End"
+					HorizontalOptions="End"
+					Grid.Row="6"
+					Margin="10"
+					Command="{Binding LogoutCommand}"/>
          
          </Grid>
       </ContentPage.Content>

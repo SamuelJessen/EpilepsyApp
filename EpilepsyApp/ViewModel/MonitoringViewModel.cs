@@ -47,23 +47,25 @@ namespace EpilepsyApp.ViewModel
 		} //This is the list of devices that is shown in the UI
 		private ObservableCollection<BLEdevice> _listOfDeviceCandidates = new ObservableCollection<BLEdevice>();
 
-		public MonitoringViewModel(BLEservice ble, IDecoder decoder)
+		public IMQTTService mqttService { get; set; }
+		public MonitoringViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient)
 		{
 			BLEservice = ble;
 			this.decoder = decoder;
+			mqttService = mqttClient;
 
 			ecgChannel = "ECG Channel 1";
 
 			Series = new ObservableCollection<ISeries>
-		 {
-			new LineSeries<DateTimePoint>
 			{
-			   Values = _values,
-			   Fill = null,
-			   GeometryFill = null,
-			   GeometryStroke = null
-			}
-		 };
+				new LineSeries<DateTimePoint>
+				{
+					Values = _values,
+					Fill = null,
+					GeometryFill = null,
+					GeometryStroke = null
+				}
+			};
 
 			_customAxis = new DateTimeAxis(TimeSpan.FromSeconds(1), Formatter)
 			{
@@ -84,7 +86,7 @@ namespace EpilepsyApp.ViewModel
 
 		public object Sync { get; } = new object();
 
-		public bool IsReading { get; set; } = true;
+		public object LockECGSamples { get; } = new object();
 
 		//private async Task ReadData()
 		//{
@@ -201,11 +203,6 @@ namespace EpilepsyApp.ViewModel
 					{
 						ListOfDeviceCandidates.Add(deviceCandidate); //add the found devices to the global list for the viewmodel
 					}
-					//TODO: Den connecter direkte til det første device den finder, bør laves om så man selv skal udvælge det
-					//if (ListOfDeviceCandidates.Count >= 1)
-					//{
-					//    await ConnectToDeviceCandidateAsync(ListOfDeviceCandidates.First());
-					//}
 
 
 				}
@@ -373,8 +370,8 @@ namespace EpilepsyApp.ViewModel
 				var decoded_data = decoder.DecodeBytes(bytessigned);
 
 				//Add the newest sample to the list
-				EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, Timestamp = time };
-				EKGSamples.Add(item);
+				//EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, Timestamp = time };
+				//EKGSamples.Add(item);
 
 				_ = sendDataAsync(decoded_data);
 			}
@@ -387,13 +384,28 @@ namespace EpilepsyApp.ViewModel
 		private async Task sendDataAsync(ECGBatchData item)
 		{
 
-			//await Task.Run(() => mqttService.Publish_RawData(item));
+			await Task.Run(() => mqttService.Publish_RawData(item));
 		}
 
 		private void HandleECGDataReceivedEvent(object sender, ECGDataReceivedEventArgs e)
 		{
 			lock (Sync)
 			{
+				if (_values.Count >= 120)
+				{
+					lock (LockECGSamples)
+					{
+						try
+						{
+							_values.RemoveAt(0);
+							_values.RemoveAt(0);
+						}
+						catch (Exception exp)
+						{
+							Debug.WriteLine(exp.Message + ": removing from ECGSamples failed in MeasurementPageViewModel, ECGSamples count: " + _values.Count);
+						}
+					}
+				}
 				try
 				{
 					int ecg1 = (e.ECGBatch.ECGChannel1[0] + e.ECGBatch.ECGChannel1[1] + e.ECGBatch.ECGChannel1[2] + e.ECGBatch.ECGChannel1[3] + e.ECGBatch.ECGChannel1[4] + e.ECGBatch.ECGChannel1[5]) / 6;
@@ -402,7 +414,7 @@ namespace EpilepsyApp.ViewModel
 					_values.Add(new DateTimePoint(DateTime.Now, ecg1));
 					_values.Add(new DateTimePoint(DateTime.Now, ecg2));
 
-					if (_values.Count > 125) _values.RemoveAt(0);
+					//if (_values.Count > 100) _values.RemoveAt(0);
 
 					// we need to update the separators every time we add a new point 
 					_customAxis.CustomSeparators = GetSeparators();
@@ -412,6 +424,29 @@ namespace EpilepsyApp.ViewModel
 				{
 					Debug.WriteLine(ex.Message + ": Adding to ECGSamples failed in MeasurementPageViewModel, ECGSamples count: " + _values.Count);
 				}
+			}
+		}
+
+		[ICommand]
+		async Task OnStartMeasurementClicked()
+		{
+
+			//Todo:Her startes målingen
+			var ble = BLEservice;
+			if (ble.DeviceInterface == null)
+			{
+				await Application.Current.MainPage.DisplayAlert("No device connected", "Go back and connect to a device", "OK");
+
+			}
+			else
+			{
+				//ECGSamples = new ObservableCollection<ECGGraph>();
+				//OnStartMeasurementEvent(new StartMeasurementEventArgs { MeasurementIsStarted = true });
+				//UserID = await SecureStorage.Default.GetAsync("UserID");
+				//_ = OnSendPersonalMetadataAsync();
+				//StartBtnText = StopText;
+
+				//mqttService.StartSending(UserID);
 			}
 		}
 	}
