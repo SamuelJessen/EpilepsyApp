@@ -13,7 +13,7 @@ namespace EpilepsyApp.Services
 	{
 		void OpenConncetion();
 		void CloseConncetion();
-		void Publish_RawData(ECGBatchData data);
+		void Publish_RawData(ECGBatchSeriesData data);
 		//void PublishMetaData(UserDataDTO data);
 
 		void StartSending(string userId);
@@ -43,7 +43,7 @@ namespace EpilepsyApp.Services
 		//	Debug.WriteLine("MetodH: PublishMetaData");
 		//}
 
-		public void Publish_RawData(ECGBatchData data)
+		public void Publish_RawData(ECGBatchSeriesData data)
 		{
 			Debug.WriteLine("MetodH: Publish_RawData");
 		}
@@ -102,7 +102,7 @@ namespace EpilepsyApp.Services
 			//Switch case to handle messages different topics
 			switch (topic)
 			{
-				case Topics.TOPIC:
+				case Topics.TOPIC_measurements:
 					//TODO Handle status from CSSURE
 					break;
 				default:
@@ -133,8 +133,8 @@ namespace EpilepsyApp.Services
 						clientId: clientId
 						);
 
-					client.Subscribe(new string[] { Topics.TOPIC }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE });
-					Publish(Topics.TOPIC, Encoding.UTF8.GetBytes("Online"));
+					client.Subscribe(new string[] { Topics.TOPIC_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE });
+					Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes("Online"));
 				}
 			}
 			catch (Exception)
@@ -151,13 +151,13 @@ namespace EpilepsyApp.Services
 			}
 		}
 
-		public void Publish_RawData(ECGBatchData data)
+		public void Publish_RawData(ECGBatchSeriesData data)
 		{
 			if (Started)
 			{
 				data.PatientID = UserId;
-				var serialData = JsonSerializer.Serialize<ECGBatchData>(data);
-				client.Publish(Topics.TOPIC, Encoding.UTF8.GetBytes(serialData));
+				var serialData = JsonSerializer.Serialize<ECGBatchSeriesData>(data);
+				client.Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes(serialData));
 			}
 		}
 

@@ -48,11 +48,13 @@ namespace EpilepsyApp.ViewModel
 		private ObservableCollection<BLEdevice> _listOfDeviceCandidates = new ObservableCollection<BLEdevice>();
 
 		public IMQTTService mqttService { get; set; }
-		public MonitoringViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient)
+		public IRawDataService rawDataService { get; set; }
+		public MonitoringViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient, IRawDataService rawDataService)
 		{
 			BLEservice = ble;
 			this.decoder = decoder;
 			mqttService = mqttClient;
+			this.rawDataService = rawDataService;
 
 			ecgChannel = "ECG Channel 1";
 
@@ -365,15 +367,16 @@ namespace EpilepsyApp.ViewModel
 			{
 				var bytes = e.Characteristic.Value;//byte array, with raw data to be sent to CSSURE
 				sbyte[] bytessigned = Array.ConvertAll(bytes, x => unchecked((sbyte)x));
-				var time = DateTimeOffset.Now.LocalDateTime;
+				var time = DateTime.Now;
 
+				// Mangler noget her, der sørger for der kun decodes, når appen er åben
 				var decoded_data = decoder.DecodeBytes(bytessigned);
 
-				//Add the newest sample to the list
-				//EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, Timestamp = time };
-				//EKGSamples.Add(item);
+				EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, TimeStamp = time };
 
-				_ = sendDataAsync(decoded_data);
+				var ecg_series = rawDataService.ProcessData(item);
+
+				_ = sendDataAsync(ecg_series);
 			}
 			catch (Exception ex)
 			{
@@ -381,9 +384,8 @@ namespace EpilepsyApp.ViewModel
 			}
 		}
 
-		private async Task sendDataAsync(ECGBatchData item)
+		private async Task sendDataAsync(ECGBatchSeriesData item)
 		{
-
 			await Task.Run(() => mqttService.Publish_RawData(item));
 		}
 
@@ -446,7 +448,7 @@ namespace EpilepsyApp.ViewModel
 				//_ = OnSendPersonalMetadataAsync();
 				//StartBtnText = StopText;
 
-				//mqttService.StartSending(UserID);
+				mqttService.StartSending(Username);
 			}
 		}
 	}

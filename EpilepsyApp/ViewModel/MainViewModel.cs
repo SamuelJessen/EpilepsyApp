@@ -15,12 +15,14 @@ namespace EpilepsyApp.ViewModel
 		public BLEservice BLEservice { get; set; }
 		private readonly IDecoder decoder;
 		public IMQTTService mqttService { get; set; }
+		public IRawDataService rawDataService { get; set; }
 
-		public MainViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient)
+		public MainViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient, IRawDataService rawDataClient)
 		{
 			BLEservice = ble;
 			this.decoder = decoder;
 			mqttService = mqttClient;
+			rawDataService = rawDataClient;
 		}
 
 		[ICommand]
