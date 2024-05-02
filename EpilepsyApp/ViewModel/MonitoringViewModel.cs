@@ -33,7 +33,6 @@ namespace EpilepsyApp.ViewModel
 		public BLEdevice BleDevice { get; set; } //This is the device that is selected in the UI
 		public IService EKGservice { get; private set; }
 		public ICharacteristic EKGCharacteristic { get; private set; }
-		private bool _measurementIsStarted { get; set; }
 		private ObservableCollection<EKGSampleDTO> _ekgSamples = new ObservableCollection<EKGSampleDTO>();
 		public ObservableCollection<EKGSampleDTO> EKGSamples { get { return _ekgSamples; } set { _ekgSamples = value; } }
 		private readonly IDecoder decoder;
@@ -49,6 +48,16 @@ namespace EpilepsyApp.ViewModel
 
 		public IMQTTService mqttService { get; set; }
 		public IRawDataService rawDataService { get; set; }
+		public bool Started { get; set; }
+
+		private readonly string StartText = "Start monitoring";
+		private readonly string StopText = "Stop monitoring";
+
+		[ObservableProperty] string startbtntext;
+		[ObservableProperty] bool scanning;
+		[ObservableProperty] string scanningtext;
+		[ObservableProperty] bool scanningBtnVisble;
+
 		public MonitoringViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient, IRawDataService rawDataService)
 		{
 			BLEservice = ble;
@@ -57,6 +66,10 @@ namespace EpilepsyApp.ViewModel
 			this.rawDataService = rawDataService;
 
 			ecgChannel = "ECG Channel 1";
+			Startbtntext = StartText;
+			Scanning = false;
+			Scanningtext = "Connect to device";
+			ScanningBtnVisble = true;
 
 			Series = new ObservableCollection<ISeries>
 			{
@@ -152,6 +165,9 @@ namespace EpilepsyApp.ViewModel
 
 		public async void Scan()
 		{
+			Scanning = true;
+			Scanningtext = "Connecting...";
+
 			CheckBluetoothAvailabilityAsync();
 
 			try
@@ -253,6 +269,11 @@ namespace EpilepsyApp.ViewModel
 			if (ListOfDeviceCandidates.Count == 0)
 			{
 				await BLEservice.ShowToastAsync("BLE Error", $"Unable to find nearby Bluetooth LE devices. Try again.");
+
+				Scanning = false;
+				Scanningtext = "Connect to device";
+				ScanningBtnVisble = true;
+
 			}
 
 			else if (ListOfDeviceCandidates.Count == 1)
@@ -272,6 +293,10 @@ namespace EpilepsyApp.ViewModel
 					ConnectToDeviceCandidateAsync(ListOfDeviceCandidates[1]);
 				}
 			}
+
+			Scanning = false;
+			Scanningtext = "Connect to device";
+			ScanningBtnVisble = false;
 		}
 
 		private async Task ConnectToDeviceCandidateAsync(BLEdevice deviceCandidate)
@@ -374,9 +399,15 @@ namespace EpilepsyApp.ViewModel
 
 				EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, TimeStamp = time };
 
-				var ecg_series = rawDataService.ProcessData(item);
+				var ecg_series = rawDataService.ProcessData(item, Started);
 
-				_ = sendDataAsync(ecg_series);
+				if (ecg_series != null)
+				{
+					DateTime now = DateTime.Now;
+					Debug.WriteLine("ECG data received: " + now.ToString("HH:mm:ss.fff"));
+					_ = sendDataAsync(ecg_series);
+				}
+
 			}
 			catch (Exception ex)
 			{
@@ -432,23 +463,34 @@ namespace EpilepsyApp.ViewModel
 		[ICommand]
 		async Task OnStartMeasurementClicked()
 		{
-
-			//Todo:Her startes målingen
-			var ble = BLEservice;
-			if (ble.DeviceInterface == null)
+			if (Startbtntext == StartText)
 			{
-				await Application.Current.MainPage.DisplayAlert("No device connected", "Go back and connect to a device", "OK");
+				//Todo:Her startes målingen
+				var ble = BLEservice;
+				Started = true;
+				if (ble.DeviceInterface == null)
+				{
+					await Application.Current.MainPage.DisplayAlert("No device connected", "Go back and connect to a device", "OK");
 
+				}
+				else
+				{
+					//ECGSamples = new ObservableCollection<ECGGraph>();
+					//OnStartMeasurementEvent(new StartMeasurementEventArgs { MeasurementIsStarted = true });
+					//UserID = await SecureStorage.Default.GetAsync("UserID");
+					//_ = OnSendPersonalMetadataAsync();
+					//StartBtnText = StopText;
+					Startbtntext = StopText;
+					mqttService.StartSending(Username);
+				}
 			}
+
 			else
 			{
-				//ECGSamples = new ObservableCollection<ECGGraph>();
-				//OnStartMeasurementEvent(new StartMeasurementEventArgs { MeasurementIsStarted = true });
-				//UserID = await SecureStorage.Default.GetAsync("UserID");
-				//_ = OnSendPersonalMetadataAsync();
-				//StartBtnText = StopText;
-
-				mqttService.StartSending(Username);
+				Startbtntext = StartText;
+				//Todo:Her stoppes målingen
+				Started = false;
+				mqttService.StopSending();
 			}
 		}
 	}

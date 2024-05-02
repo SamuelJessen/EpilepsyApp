@@ -5,52 +5,59 @@
              xmlns:viewmodel="clr-namespace:EpilepsyApp.ViewModel"
              x:DataType="viewmodel:MonitoringViewModel"
              xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Maui;assembly=LiveChartsCore.SkiaSharpView.Maui"
+			 xmlns:customControls="clr-namespace:EpilepsyApp.CustomControls;assembly=EpilepsyApp"
              Title="">
-    <ContentPage.Content>
-         <Grid>
-            <Grid.RowDefinitions>
-               <RowDefinition Height="20"/>
-               <RowDefinition Height="60"/>
-               <RowDefinition Height="40"/>
-               <RowDefinition Height="300"/>
-               <RowDefinition Height="100"/>
-               <RowDefinition Height="165"/>  
-               <RowDefinition Height="60"/>
-            </Grid.RowDefinitions>
-         <Label VerticalOptions="Start"
+	<ContentPage.Content>
+		<Grid>
+			<Grid.RowDefinitions>
+				<RowDefinition Height="20"/>
+				<RowDefinition Height="60"/>
+				<RowDefinition Height="40"/>
+				<RowDefinition Height="300"/>
+				<RowDefinition Height="100"/>
+				<RowDefinition Height="165"/>
+				<RowDefinition Height="60"/>
+			</Grid.RowDefinitions>
+			<Label VerticalOptions="Start"
                 HorizontalOptions="End"
                 Grid.Row="0"
                 Margin="0,0,10,0">
-            <Label.FormattedText>
-               <FormattedString>
-                  <Span Text="User: " />
-                  <Span Text="{Binding Username}" />
-               </FormattedString>
-            </Label.FormattedText>
-         </Label>
-            <Image Source="cortrium.png" Grid.Row="1" HeightRequest="70" HorizontalOptions="Center" VerticalOptions="Start" Margin="0,0,0,0" />
-            <Label Text="{Binding EcgChannel}" Grid.Row="2" VerticalOptions="Start" HorizontalOptions="Center" Margin="10,20,0,-10"/>
+				<Label.FormattedText>
+					<FormattedString>
+						<Span Text="User: " />
+						<Span Text="{Binding Username}" />
+					</FormattedString>
+				</Label.FormattedText>
+			</Label>
+			<Image Source="cortrium.png" Grid.Row="1" HeightRequest="70" HorizontalOptions="Center" VerticalOptions="Start" Margin="0,0,0,0" />
+			<Label Text="{Binding EcgChannel}" Grid.Row="2" VerticalOptions="Start" HorizontalOptions="Center" Margin="10,20,0,-10"/>
 			<lvc:CartesianChart Grid.Row="3" Margin="10" Series="{Binding Series}" SyncContext="{Binding Sync}" XAxes="{Binding XAxes}"></lvc:CartesianChart>
-         <Button Text="Connect Device" 
-                 Grid.Row="4"
-                 Margin="0"
-                 VerticalOptions="End"
-                 HorizontalOptions="Center"
-                 Command="{Binding ScanDevicesCommand}"/>
-			<Button Text="Start monitoring" 
+
+			<HorizontalStackLayout Grid.Row="4" HorizontalOptions="Center">
+				<Button Text="{Binding Scanningtext}" 
+						Margin="5"
+						VerticalOptions="Center"
+						HorizontalOptions="Center"
+						Command="{Binding ScanDevicesCommand}" 
+						IsVisible="{Binding ScanningBtnVisble}"/>
+				<ActivityIndicator IsRunning="{Binding Scanning}" Margin="20"/>
+
+			</HorizontalStackLayout>
+			
+			<Button Text="{Binding Startbtntext}" 
 			Grid.Row="5"
 			Margin="0"
 			VerticalOptions="End"
 			HorizontalOptions="Center"
 			Command="{Binding OnStartMeasurementClickedCommand}"/>
-			 
+
 			<Button Text="Logout"
 					VerticalOptions="End"
 					HorizontalOptions="End"
 					Grid.Row="6"
 					Margin="10"
 					Command="{Binding LogoutCommand}"/>
-         
-         </Grid>
-      </ContentPage.Content>
+
+		</Grid>
+	</ContentPage.Content>
 </ContentPage>

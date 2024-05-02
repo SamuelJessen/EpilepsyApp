@@ -82,6 +82,7 @@ namespace EpilepsyApp.Services
 			Started = false;
 			client = new MqttClient("test.mosquitto.org");
 			clientId = Guid.NewGuid().ToString();
+			Debug.WriteLine("Clientversion: " + client.ProtocolVersion);
 			OpenConncetion();
 		}
 
@@ -134,7 +135,7 @@ namespace EpilepsyApp.Services
 						);
 
 					client.Subscribe(new string[] { Topics.TOPIC_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE });
-					Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes("Online"));
+					//Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes("Online"));
 				}
 			}
 			catch (Exception)

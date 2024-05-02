@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Frame xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+	   BackgroundColor="{x:StaticResource Primary}"
+       x:Class="EpilepsyApp.CustomControls.ButtonControlLoading">
+    <VerticalStackLayout>
+		<ActivityIndicator Color="White" IsRunning="True" HorizontalOptions="Center" HeightRequest="15" WidthRequest="15" VerticalOptions="Center"/>
+		<Label Text="Connecting..." TextColor="White" FontSize="15" HorizontalOptions="Center" HorizontalTextAlignment="Center" VerticalTextAlignment="Center"/>
+	</VerticalStackLayout>
+</Frame>
