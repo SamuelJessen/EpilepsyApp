@@ -403,9 +403,23 @@ namespace EpilepsyApp.ViewModel
 
 				if (ecg_series != null)
 				{
+					Debug.WriteLine("First digit: " + decoded_data.ECGChannel1[0].ToString());
+					Debug.WriteLine("Second digit: " + decoded_data.ECGChannel1[1].ToString());
+					Debug.WriteLine("Third digit: " + decoded_data.ECGChannel1[2].ToString());
+					Debug.WriteLine("Fourth digit: " + decoded_data.ECGChannel1[3].ToString());
+					Debug.WriteLine("Length: " + decoded_data.ECGChannel1.Length.ToString());
 					DateTime now = DateTime.Now;
+					Debug.WriteLine("First digit lastbytearray: " + bytessigned[0].ToString());
+					Debug.WriteLine("Second digit bytearray: " + bytessigned[1].ToString());
+					Debug.WriteLine("Third digit bytearray: " + bytessigned[2].ToString());
+					Debug.WriteLine("Fourth digit bytearray: " + bytessigned[3].ToString());
 					Debug.WriteLine("ECG data received: " + now.ToString("HH:mm:ss.fff"));
-					_ = sendDataAsync(ecg_series);
+					Debug.WriteLine("Length bytearray: " + ecg_series.EcgRawBytes.Count.ToString());
+					Debug.WriteLine("First digit bytearray: " + ecg_series.EcgRawBytes[0][0].ToString());
+					Debug.WriteLine("Second digit bytearray: " + ecg_series.EcgRawBytes[0][1].ToString());
+					Debug.WriteLine("Third digit bytearray: " + ecg_series.EcgRawBytes[0][2].ToString());
+					Debug.WriteLine("Fourth digit bytearray: " + ecg_series.EcgRawBytes[0][3].ToString());
+					sendData(ecg_series);
 				}
 
 			}
@@ -415,9 +429,9 @@ namespace EpilepsyApp.ViewModel
 			}
 		}
 
-		private async Task sendDataAsync(ECGBatchSeriesData item)
+		private void sendData(ECGBatchSeriesData item)
 		{
-			await Task.Run(() => mqttService.Publish_RawData(item));
+			mqttService.Publish_RawData(item);
 		}
 
 		private void HandleECGDataReceivedEvent(object sender, ECGDataReceivedEventArgs e)

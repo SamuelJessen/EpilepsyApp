@@ -134,8 +134,8 @@ namespace EpilepsyApp.Services
 						clientId: clientId
 						);
 
-					client.Subscribe(new string[] { Topics.TOPIC_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE });
-					//Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes("Online"));
+					client.Subscribe(new string[] { Topics.TOPIC_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE });
+					//Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes(""));
 				}
 			}
 			catch (Exception)
@@ -159,6 +159,7 @@ namespace EpilepsyApp.Services
 				data.PatientID = UserId;
 				var serialData = JsonSerializer.Serialize<ECGBatchSeriesData>(data);
 				client.Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes(serialData));
+
 			}
 		}
 

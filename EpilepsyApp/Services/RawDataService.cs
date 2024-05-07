@@ -15,7 +15,7 @@ namespace EpilepsyApp.Services
 		private readonly IMQTTService mqttService;
 
 		// Buffering
-		private int nBufferSamples = 252 * 60 * 3; //45360 samples
+		private int nBufferSamples = 252 * 20; //45360 samples
 		private ECGBatchSeriesData bufferedECG = new ECGBatchSeriesData()
 		{
 			EcgRawBytes = new List<sbyte[]>(),
@@ -56,10 +56,16 @@ namespace EpilepsyApp.Services
 					{
 						ECGBatchSeriesData dataDTO = new ECGBatchSeriesData()
 						{
-							EcgRawBytes = bufferedECG.EcgRawBytes,
-							TimeStamp = bufferedECG.TimeStamp,
-							PatientID = bufferedECG.PatientID,
+							EcgRawBytes = new List<sbyte[]>(),
+							TimeStamp = new DateTime(),
+							PatientID = "",
+							Samples = 0
 						};
+
+						dataDTO.EcgRawBytes = bufferedECG.EcgRawBytes;
+						dataDTO.TimeStamp = bufferedECG.TimeStamp;
+						dataDTO.PatientID = bufferedECG.PatientID;
+						dataDTO.Samples = bufferedECG.Samples;
 
 						var t2 = DateTime.Now.ToUniversalTime();
 						var timedifferent = t2 - t1;
@@ -68,21 +74,33 @@ namespace EpilepsyApp.Services
 						return dataDTO;
 					}
 
-					if (newBufferReady == true && check == 1)
+					else if (newBufferReady == true && check == 1)
 					{
 						ECGBatchSeriesData dataDTO = new ECGBatchSeriesData()
 						{
-							EcgRawBytes = bufferedECG.EcgRawBytes,
-							TimeStamp = bufferedECG.TimeStamp,
-							PatientID = bufferedECG.PatientID,
+							EcgRawBytes = new List<sbyte[]>(),
+							TimeStamp = new DateTime(),
+							PatientID = "",
+							Samples = 0
 						};
+
+						dataDTO.EcgRawBytes = bufferedECG.EcgRawBytes;
+						dataDTO.TimeStamp = bufferedECG.TimeStamp;
+						dataDTO.PatientID = bufferedECG.PatientID;
+						dataDTO.Samples = bufferedECG.Samples;
 
 						var t2 = DateTime.Now.ToUniversalTime();
 						var timedifferent = t2 - t1;
 						Debug.WriteLine(timedifferent);
 						return dataDTO;
 					}
+
+					else
+					{
+						return null;
+					}
 				}
+
 				catch (Exception)
 				{
 					Debug.WriteLine("ProcessData(EKGSampleDTO eKGSample)");
@@ -99,8 +117,7 @@ namespace EpilepsyApp.Services
 			//TODO: dynamic length of data
 			// Add new batch to buffer
 			buffer.EcgRawBytes.Add(ecgData.RawBytes);
-			var time = ecgData.TimeStamp.Millisecond;
-			//buffer.TimeStamp.Add(time);
+			buffer.TimeStamp = ecgData.TimeStamp;
 			buffer.Samples += 12;
 			buffer.PatientID = ecgData.PatientId;
 			newBufferReady = false;
@@ -109,10 +126,6 @@ namespace EpilepsyApp.Services
 			if (nCurrentSamples >= nBufferSamples + 252 * 5)
 			{
 				// Remove first batch from buffer (FIFO)
-				//buffer.ECGChannel1.RemoveRange(0, 21);
-				//buffer.ECGChannel2.RemoveRange(0, 21);
-				//buffer.ECGChannel3.RemoveRange(0, 21);
-				//buffer.TimeStamp.RemoveRange(0, 21);
 				buffer.EcgRawBytes.RemoveRange(0, 21 * 5);
 				buffer.Samples -= 12 * 21 * 5;
 				newBufferReady = true;
