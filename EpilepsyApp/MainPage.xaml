@@ -14,7 +14,7 @@
             <StackLayout>
                 <VerticalStackLayout Margin="5">
                     <Label Text="Login" FontSize="15" Margin="5"/>
-                    <Entry x:Name="UsernameEntry" Placeholder="Enter Username" Text="{Binding Username}" />
+                    <Entry x:Name="UsernameEntry" Placeholder="Enter PatientID/CPR" Text="{Binding PatientID}" />
                 </VerticalStackLayout>
                 <VerticalStackLayout Margin="5">
                     <Entry x:Name="PasswordEntry"  Placeholder="Enter Password" Text="{Binding Password}" />
