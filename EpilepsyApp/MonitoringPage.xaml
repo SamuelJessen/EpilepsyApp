@@ -24,8 +24,8 @@
                 Margin="0,0,10,0">
 				<Label.FormattedText>
 					<FormattedString>
-						<Span Text="User: " />
-						<Span Text="{Binding Username}" />
+						<Span Text="Patient-ID: " />
+						<Span Text="{Binding PatientID}" />
 					</FormattedString>
 				</Label.FormattedText>
 			</Label>
@@ -57,6 +57,28 @@
 					Grid.Row="6"
 					Margin="10"
 					Command="{Binding LogoutCommand}"/>
+			<Button Text="Set thresholds"
+			        VerticalOptions="End"
+			        HorizontalOptions="End"
+			        Grid.Row="6"
+			        Margin="10"
+			        Command="{Binding OpenSettingsCommand}"/>
+			<ContentView Grid.Row="0" x:Name="SettingsPopup" IsVisible="{Binding SettingsIsOpen}" BackgroundColor="#C0808080" Padding="20" VerticalOptions="CenterAndExpand" HorizontalOptions="CenterAndExpand">
+				<ContentView.Content>
+					<Grid BackgroundColor="White" Padding="20">
+						<Label Text="CSI30:"/>
+						<Entry Text="{Binding Csi30Threshold}" Margin="0,10,0,0"/>
+						<Label Text="CSI50:"/>
+						<Entry Text="{Binding Csi50Threshold}" Margin="0,10,0,0"/>
+						<Label Text="CSI100:"/>
+						<Entry Text="{Binding Csi100Threshold}" Margin="0,10,0,0"/>
+						<Label Text="MOD-CSI100:"/>
+						<Entry Text="{Binding ModCSI100Threshold}" Margin="0,10,0,0"/>
+						<Button Text="Save" BackgroundColor="#007AFF" TextColor="White" CornerRadius="5" Margin="0,10,0,0" Command="{Binding SaveThresholdsCommand}" />
+						<Button Text="Cancel" BackgroundColor="LightGray" TextColor="Black" CornerRadius="5" Margin="0,10,0,0" Command="{Binding CloseSettingsCommand}" />
+					</Grid>
+				</ContentView.Content>
+			</ContentView>
 
 		</Grid>
 	</ContentPage.Content>

@@ -1,7 +1,10 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EpilepsyApp.Constants;
 using EpilepsyApp.CortrumDevice;
 using EpilepsyApp.DTO;
 using EpilepsyApp.Events;
@@ -18,13 +21,14 @@ using SkiaSharp;
 
 namespace EpilepsyApp.ViewModel
 {
-	[QueryProperty("Username", "Username")]
+	[QueryProperty("patientID", "patientID")]
 
 	public partial class MonitoringViewModel : ObservableObject
 	{
-		[ObservableProperty] string username;
+		[ObservableProperty] string patientID;
 
 		[ObservableProperty] string ecgChannel;
+		[ObservableProperty] bool _settingsIsOpen;
 
 		private readonly Random _random = new();
 		private readonly List<DateTimePoint> _values = new();
@@ -57,6 +61,13 @@ namespace EpilepsyApp.ViewModel
 		[ObservableProperty] bool scanning;
 		[ObservableProperty] string scanningtext;
 		[ObservableProperty] bool scanningBtnVisble;
+		[ObservableProperty] Patient _patient;
+		[ObservableProperty] int _csi30Threshold;
+		[ObservableProperty] int _csi50Threshold;
+		[ObservableProperty] int _csi100Threshold;
+		[ObservableProperty] int _modCSI100Threshold;
+
+		private readonly HttpClient httpClient;
 
 		public MonitoringViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient, IRawDataService rawDataService)
 		{
@@ -93,6 +104,27 @@ namespace EpilepsyApp.ViewModel
 
 
 			decoder.ECGDataReceivedEvent += HandleECGDataReceivedEvent;
+
+			_ = FetchPatient();
+		}
+
+		public async Task FetchPatient()
+		{
+			var patientResponse = await httpClient.GetAsync(APIStrings.ApiString + $"/patients/{PatientID}");
+			if (patientResponse.IsSuccessStatusCode)
+			{
+				var patientJson = await patientResponse.Content.ReadAsStringAsync();
+				Patient = JsonSerializer.Deserialize<Patient>(patientJson);
+				Csi30Threshold = Patient.CSIThreshold30;
+				Csi50Threshold = Patient.CSIThreshold50;
+				Csi100Threshold = Patient.CSIThreshold100;
+				ModCSI100Threshold = Patient.ModCSIThreshold100;
+			}
+			else
+			{
+				string errorMessage = $"Failed to get patient: {patientResponse.StatusCode} - {patientResponse.ReasonPhrase}";
+				await Shell.Current.DisplayAlert("Failed to get patient", errorMessage, "OK");
+			}
 		}
 
 		public ObservableCollection<ISeries> Series { get; set; }
@@ -148,6 +180,39 @@ namespace EpilepsyApp.ViewModel
 			return secsAgo < 1
 			   ? "now"
 			   : $"{secsAgo:N0}s ago";
+		}
+
+		[ICommand]
+		Task OpenSettings()
+		{
+			SettingsIsOpen = true;
+			return Task.CompletedTask;
+		}
+
+		[ICommand]
+		Task CloseSetting()
+		{
+			SettingsIsOpen = false;
+			return Task.CompletedTask;
+		}
+
+		[ICommand]
+		async Task SaveThresholds()
+		{
+			var thresholdRequest = new { CSIThreshold30 = Csi30Threshold, CSIThreshold50 = Csi50Threshold, CSIThreshold100 = Csi100Threshold, ModCSIThreshold100 = ModCSI100Threshold };
+			var json = JsonSerializer.Serialize(thresholdRequest);
+			var content = new StringContent(json, Encoding.UTF8, "application/json");
+			HttpResponseMessage response = await httpClient.PostAsync(APIStrings.ApiString + $"/patients/{PatientID}/thresholds", content);
+			if (response.IsSuccessStatusCode)
+			{
+				SettingsIsOpen = false;
+			}
+			else
+			{
+				string errorMessage = $"Threshold update failed: {response.StatusCode} - {response.ReasonPhrase}";
+				await Shell.Current.DisplayAlert("Threshold update failed", errorMessage, "OK");
+			}
+			
 		}
 
 		[ICommand]
@@ -495,7 +560,7 @@ namespace EpilepsyApp.ViewModel
 					//_ = OnSendPersonalMetadataAsync();
 					//StartBtnText = StopText;
 					Startbtntext = StopText;
-					mqttService.StartSending(Username);
+					mqttService.StartSending(patientID);
 				}
 			}
 
