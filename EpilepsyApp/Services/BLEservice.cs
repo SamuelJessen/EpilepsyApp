@@ -445,7 +445,7 @@ namespace EpilepsyApp.Services
       //try to stop scanning as soon as you find the desired device
       //never scan on a loop, and set a time limit on your scan
       //public async Task<List<DeviceCandidate>> ScanForDevicesAsync()
-      //{  //This method will scan as long as BLEservice.AdapterInterface.ScanTimeout is set.
+      //{  //This method will scan as long as _bleService.AdapterInterface.ScanTimeout is set.
 
       //    DeviceList = new List<DeviceCandidate>(); //clear the list of devices
       //    try

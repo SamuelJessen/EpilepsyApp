@@ -65,20 +65,20 @@
 			        Margin="10"
 			        Command="{Binding OpenSettingsCommand}"/>
 
-			<ContentView Grid.Row="7" Grid.ColumnSpan="10" Grid.RowSpan="10" x:Name="SettingsPopup" IsVisible="{Binding SettingsIsOpen}" BackgroundColor="#C0808080" Padding="20" VerticalOptions="CenterAndExpand" HorizontalOptions="CenterAndExpand">
+			<ContentView Grid.Row="0" Grid.RowSpan="7" x:Name="SettingsPopup" IsVisible="{Binding SettingsIsOpen}" BackgroundColor="#C0808080" Padding="20" >
 				<ContentView.Content>
 					<StackLayout VerticalOptions="FillAndExpand">
-						<Grid BackgroundColor="White" Padding="20" RowDefinitions="3,3,3,3,3,3,3,3,3,3" HeightRequest="150" WidthRequest="500">
-							<Label Text="CSI30:"/>
-							<Entry Text="{Binding Csi30Threshold}" Margin="0,10,0,0"/>
-							<Label Text="CSI50:"/>
-							<Entry Text="{Binding Csi50Threshold}" Margin="0,10,0,0"/>
-							<Label Text="CSI100:"/>
-							<Entry Text="{Binding Csi100Threshold}" Margin="0,10,0,0"/>
-							<Label Text="MOD-CSI100:"/>
-							<Entry Text="{Binding ModCSI100Threshold}" Margin="0,10,0,0" Grid.Row="10"/>
-							<Button Text="Save" BackgroundColor="#007AFF" TextColor="White" CornerRadius="5" Margin="0,0,0,0" Command="{Binding SaveThresholdsCommand}" Grid.Row="9"/>
-							<Button Text="Cancel" BackgroundColor="LightGray" TextColor="Black" CornerRadius="5" Margin="0,0,0,0" Command="{Binding CloseSettingCommand}" Grid.Row="8" />
+						<Grid Grid.RowDefinitions="*,*,*,*,*,*,*,*,*,*" BackgroundColor="White" Padding="20" >
+							<Label Text="CSI30:" Grid.Row="0"/>
+							<Entry Text="{Binding Csi30Threshold}" Margin="0,10,0,0" Grid.Row="1"/>
+							<Label Text="CSI50:" Grid.Row="2"/>
+							<Entry Text="{Binding Csi50Threshold}" Margin="0,10,0,0" Grid.Row="3"/>
+							<Label Text="CSI100:" Grid.Row="4"/>
+							<Entry Text="{Binding Csi100Threshold}" Margin="0,10,0,0" Grid.Row="5"/>
+							<Label Text="MOD-CSI100:" Grid.Row="6"/>
+							<Entry Text="{Binding ModCSI100Threshold}" Margin="0,10,0,0" Grid.Row="7"/>
+							<Button Text="Save" BackgroundColor="#007AFF" TextColor="White" CornerRadius="5" Margin="10,10,10,10" Command="{Binding SaveThresholdsCommand}" Grid.Row="8"/>
+							<Button Text="Cancel" BackgroundColor="LightGray" TextColor="Black" CornerRadius="5" Margin="10,10,10,10" Command="{Binding CloseSettingCommand}" Grid.Row="9" />
 						</Grid>
 					</StackLayout>
 				</ContentView.Content>

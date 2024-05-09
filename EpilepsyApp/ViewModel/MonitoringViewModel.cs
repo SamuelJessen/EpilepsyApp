@@ -22,11 +22,11 @@ using uPLibrary.Networking.M2Mqtt.Messages;
 
 namespace EpilepsyApp.ViewModel
 {
-	[QueryProperty("patientID", "patientID")]
+	[QueryProperty(nameof(PatientID), nameof(PatientID))]
 
-	public partial class MonitoringViewModel : ObservableObject
+	public partial class MonitoringViewModel : ObservableObject, IQueryAttributable
 	{
-		[ObservableProperty] string patientID;
+		[ObservableProperty] string _patientID;
 
 		[ObservableProperty] string ecgChannel;
 		[ObservableProperty] bool _settingsIsOpen;
@@ -40,7 +40,6 @@ namespace EpilepsyApp.ViewModel
 		public ICharacteristic EKGCharacteristic { get; private set; }
 		private ObservableCollection<EKGSampleDTO> _ekgSamples = new ObservableCollection<EKGSampleDTO>();
 		public ObservableCollection<EKGSampleDTO> EKGSamples { get { return _ekgSamples; } set { _ekgSamples = value; } }
-		private readonly IDecoder decoder;
 		public ObservableCollection<BLEdevice> ListOfDeviceCandidates
 		{
 			get { return _listOfDeviceCandidates; }
@@ -51,8 +50,10 @@ namespace EpilepsyApp.ViewModel
 		} //This is the list of devices that is shown in the UI
 		private ObservableCollection<BLEdevice> _listOfDeviceCandidates = new ObservableCollection<BLEdevice>();
 
-		public IMQTTService mqttService { get; set; }
-		public IRawDataService rawDataService { get; set; }
+		public IMQTTService _mqttService { get; set; }
+		public IRawDataService _rawDataService { get; set; }
+		public IAPIService _apiService { get; set; }
+		private readonly IDecoder _decoder;
 		public bool Started { get; set; }
 
 		private readonly string StartText = "Start monitoring";
@@ -68,14 +69,13 @@ namespace EpilepsyApp.ViewModel
 		[ObservableProperty] int _csi100Threshold;
 		[ObservableProperty] int _modCSI100Threshold;
 
-		private readonly HttpClient httpClient;
-
-		public MonitoringViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient, IRawDataService rawDataService)
+		public MonitoringViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient, IRawDataService rawDataService, IAPIService apiService)
 		{
 			BLEservice = ble;
-			this.decoder = decoder;
-			mqttService = mqttClient;
-			this.rawDataService = rawDataService;
+			_decoder = decoder;
+			_mqttService = mqttClient;
+			_rawDataService = rawDataService;
+			_apiService = apiService;
 
 			ecgChannel = "ECG Channel 1";
 			Startbtntext = StartText;
@@ -103,31 +103,31 @@ namespace EpilepsyApp.ViewModel
 
 			XAxes = new Axis[] { _customAxis };
 
+			_decoder.ECGDataReceivedEvent += HandleECGDataReceivedEvent;
 
-			decoder.ECGDataReceivedEvent += HandleECGDataReceivedEvent;
 
-			_ = FetchPatient();
-
-			mqttService.OnCSIReceived += HandleCSIReceivedEvent;
+			_mqttService.OnCSIReceived += HandleCSIReceivedEvent;
 		}
 
-		public async Task FetchPatient()
+		private async Task Initialize()
 		{
-			var patientResponse = await httpClient.GetAsync(APIStrings.ApiString + $"/patients/{PatientID}");
-			if (patientResponse.IsSuccessStatusCode)
+			var patientResponse = await _apiService.GetPatient(PatientID);
+			if(patientResponse == null)
 			{
-				var patientJson = await patientResponse.Content.ReadAsStringAsync();
-				Patient = JsonSerializer.Deserialize<Patient>(patientJson);
-				Csi30Threshold = Patient.CSIThreshold30;
-				Csi50Threshold = Patient.CSIThreshold50;
-				Csi100Threshold = Patient.CSIThreshold100;
-				ModCSI100Threshold = Patient.ModCSIThreshold100;
+				await Shell.Current.DisplayAlert("Error", "Patient not found", "OK");
 			}
-			else
-			{
-				string errorMessage = $"Failed to get patient: {patientResponse.StatusCode} - {patientResponse.ReasonPhrase}";
-				await Shell.Current.DisplayAlert("Failed to get patient", errorMessage, "OK");
-			}
+			Patient = patientResponse;
+			Csi30Threshold = Patient.CSIThreshold30;
+			Csi50Threshold = Patient.CSIThreshold50;
+			Csi100Threshold = Patient.CSIThreshold100;
+			ModCSI100Threshold = Patient.ModCSIThreshold100;
+		}
+
+		public void ApplyQueryAttributes(IDictionary<string, object> query)
+		{
+			if (!query.ContainsKey(nameof(PatientID))) return;
+			PatientID = (string)query[nameof(PatientID)];
+			Initialize().ConfigureAwait(false);
 		}
 
 		public ObservableCollection<ISeries> Series { get; set; }
@@ -202,20 +202,15 @@ namespace EpilepsyApp.ViewModel
 		[ICommand]
 		async Task SaveThresholds()
 		{
-			var thresholdRequest = new { CSIThreshold30 = Csi30Threshold, CSIThreshold50 = Csi50Threshold, CSIThreshold100 = Csi100Threshold, ModCSIThreshold100 = ModCSI100Threshold };
-			var json = JsonSerializer.Serialize(thresholdRequest);
-			var content = new StringContent(json, Encoding.UTF8, "application/json");
-			HttpResponseMessage response = await httpClient.PostAsync(APIStrings.ApiString + $"/patients/{PatientID}/thresholds", content);
-			if (response.IsSuccessStatusCode)
+			var thresholdresponse = await _apiService.UpdateThresholds(Patient.Id, Csi30Threshold, Csi50Threshold, Csi100Threshold, ModCSI100Threshold);
+			if (thresholdresponse)
 			{
 				SettingsIsOpen = false;
 			}
 			else
 			{
-				string errorMessage = $"Threshold update failed: {response.StatusCode} - {response.ReasonPhrase}";
-				await Shell.Current.DisplayAlert("Threshold update failed", errorMessage, "OK");
+				await Shell.Current.DisplayAlert("Threshold update failed", "Failed to update thresholds", "OK");
 			}
-
 		}
 
 		[ICommand]
@@ -463,11 +458,11 @@ namespace EpilepsyApp.ViewModel
 				var time = DateTime.Now;
 
 				// Mangler noget her, der sørger for der kun decodes, når appen er åben
-				var decoded_data = decoder.DecodeBytes(bytessigned);
+				var decoded_data = _decoder.DecodeBytes(bytessigned);
 
 				EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, TimeStamp = time };
 
-				var ecg_series = rawDataService.ProcessData(item, Started);
+				var ecg_series = _rawDataService.ProcessData(item, Started);
 
 				if (ecg_series != null)
 				{
@@ -499,7 +494,7 @@ namespace EpilepsyApp.ViewModel
 
 		private void sendData(ECGBatchSeriesData item)
 		{
-			mqttService.Publish_RawData(item);
+			_mqttService.Publish_RawData(item);
 		}
 
 		private void HandleECGDataReceivedEvent(object sender, ECGDataReceivedEventArgs e)
@@ -563,7 +558,7 @@ namespace EpilepsyApp.ViewModel
 					//_ = OnSendPersonalMetadataAsync();
 					//StartBtnText = StopText;
 					Startbtntext = StopText;
-					mqttService.StartSending(patientID);
+					_mqttService.StartSending(PatientID);
 				}
 			}
 
@@ -572,7 +567,7 @@ namespace EpilepsyApp.ViewModel
 				Startbtntext = StartText;
 				//Todo:Her stoppes målingen
 				Started = false;
-				mqttService.StopSending();
+				_mqttService.StopSending();
 			}
 		}
 

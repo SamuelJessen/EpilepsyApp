@@ -10,42 +10,37 @@ namespace EpilepsyApp.ViewModel
 	public partial class MainViewModel : ObservableObject
 	{
 		[ObservableProperty]
-		string patientID;
+		string _patientID;
 
 		[ObservableProperty]
-		string password;
+		string _password;
 
 		public BLEservice BLEservice { get; set; }
-		private readonly IDecoder decoder;
-		public IMQTTService mqttService { get; set; }
-		public IRawDataService rawDataService { get; set; }
-		private readonly HttpClient httpClient;
+		private readonly IDecoder _decoder;
+		public IMQTTService _mqttService { get; set; }
+		public IRawDataService _rawDataService { get; set; }
+		public IAPIService _apiService { get; set; }
 
-		public MainViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient, IRawDataService rawDataClient)
+		public MainViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient, IRawDataService rawDataClient, IAPIService apiService)
 		{
 			BLEservice = ble;
-			this.decoder = decoder;
-			mqttService = mqttClient;
-			rawDataService = rawDataClient;
-			httpClient = new HttpClient();
+			_decoder = decoder;
+			_mqttService = mqttClient;
+			_rawDataService = rawDataClient;
+			_apiService = apiService;
 		}
 
 		[ICommand]
 		public async Task Login()
 		{
-			var loginRequest = new { Id = patientID, Password = password };
-			var json = JsonSerializer.Serialize(loginRequest);
-			var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-			HttpResponseMessage response = await httpClient.PostAsync(APIStrings.ApiString + "/patients/login", content);
-
-			if (response.IsSuccessStatusCode)
+			var loginResult = await _apiService.Login(PatientID, Password);
+			if (loginResult)
 			{
-				await Shell.Current.GoToAsync($"{nameof(MonitoringPage)}?patientID= {patientID}");
+				await Shell.Current.GoToAsync($"{nameof(MonitoringPage)}?PatientID={PatientID}");
 			}
 			else
 			{
-				string errorMessage = $"Login failed: {response.StatusCode} - {response.ReasonPhrase}";
+				string errorMessage = $"Login failed!";
 				await Shell.Current.DisplayAlert("Login Failed", errorMessage, "OK");
 			}
 		}
