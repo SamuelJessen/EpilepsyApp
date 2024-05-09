@@ -597,7 +597,7 @@ namespace EpilepsyApp.ViewModel
 
 					var ecgAlarm = new EcgAlarm();
 
-					if (decodedMessage.CSI30 / CSINormMax[0] > 1.65)
+					if (decodedMessage.CSI30 / Csi30Threshold > 1.65)
 					{
 						ecgAlarm.CSI30Alarm = true;
 					}
@@ -607,7 +607,7 @@ namespace EpilepsyApp.ViewModel
 						ecgAlarm.CSI30Alarm = false;
 					}
 
-					if (decodedMessage.CSI50 / CSINormMax[1] > 2.15)
+					if (decodedMessage.CSI50 / Csi50Threshold > 2.15)
 					{
 						ecgAlarm.CSI50Alarm = true;
 					}
@@ -617,7 +617,7 @@ namespace EpilepsyApp.ViewModel
 						ecgAlarm.CSI50Alarm = false;
 					}
 
-					if (decodedMessage.CSI100 / CSINormMax[2] > 2.15)
+					if (decodedMessage.CSI100 / Csi100Threshold > 2.15)
 					{
 						ecgAlarm.CSI100Alarm = true;
 					}
@@ -627,7 +627,7 @@ namespace EpilepsyApp.ViewModel
 						ecgAlarm.CSI100Alarm = false;
 					}
 
-					if (decodedMessage.ModCSI100 / CSINormMax[3] > 2.15)
+					if (decodedMessage.ModCSI100 / ModCSI100Threshold > 2.15)
 					{
 						ecgAlarm.ModCSI100Alarm = true;
 					}
@@ -641,7 +641,7 @@ namespace EpilepsyApp.ViewModel
 					{
 						ecgAlarm.Id = Guid.NewGuid();
 						ecgAlarm.AlarmTimeStamp = decodedMessage.TimeStamp;
-						ecgAlarm.PatientId = Username;
+						ecgAlarm.PatientId = decodedMessage.PatientID;
 						ecgAlarm.CSI30 = decodedMessage.CSI30;
 						ecgAlarm.CSI50 = decodedMessage.CSI50;
 						ecgAlarm.CSI100 = decodedMessage.CSI100;

@@ -16,7 +16,8 @@
 				<RowDefinition Height="300"/>
 				<RowDefinition Height="100"/>
 				<RowDefinition Height="165"/>
-				<RowDefinition Height="60"/>
+				<RowDefinition Height="200"/>
+				<RowDefinition Height="200"/>
 			</Grid.RowDefinitions>
 			<Label VerticalOptions="Start"
                 HorizontalOptions="End"
@@ -60,23 +61,26 @@
 			<Button Text="Set thresholds"
 			        VerticalOptions="End"
 			        HorizontalOptions="End"
-			        Grid.Row="6"
+			        Grid.Row="7"
 			        Margin="10"
 			        Command="{Binding OpenSettingsCommand}"/>
-			<ContentView Grid.Row="0" x:Name="SettingsPopup" IsVisible="{Binding SettingsIsOpen}" BackgroundColor="#C0808080" Padding="20" VerticalOptions="CenterAndExpand" HorizontalOptions="CenterAndExpand">
+
+			<ContentView Grid.Row="7" Grid.ColumnSpan="10" Grid.RowSpan="10" x:Name="SettingsPopup" IsVisible="{Binding SettingsIsOpen}" BackgroundColor="#C0808080" Padding="20" VerticalOptions="CenterAndExpand" HorizontalOptions="CenterAndExpand">
 				<ContentView.Content>
-					<Grid BackgroundColor="White" Padding="20">
-						<Label Text="CSI30:"/>
-						<Entry Text="{Binding Csi30Threshold}" Margin="0,10,0,0"/>
-						<Label Text="CSI50:"/>
-						<Entry Text="{Binding Csi50Threshold}" Margin="0,10,0,0"/>
-						<Label Text="CSI100:"/>
-						<Entry Text="{Binding Csi100Threshold}" Margin="0,10,0,0"/>
-						<Label Text="MOD-CSI100:"/>
-						<Entry Text="{Binding ModCSI100Threshold}" Margin="0,10,0,0"/>
-						<Button Text="Save" BackgroundColor="#007AFF" TextColor="White" CornerRadius="5" Margin="0,10,0,0" Command="{Binding SaveThresholdsCommand}" />
-						<Button Text="Cancel" BackgroundColor="LightGray" TextColor="Black" CornerRadius="5" Margin="0,10,0,0" Command="{Binding CloseSettingsCommand}" />
-					</Grid>
+					<StackLayout VerticalOptions="FillAndExpand">
+						<Grid BackgroundColor="White" Padding="20" RowDefinitions="3,3,3,3,3,3,3,3,3,3" HeightRequest="150" WidthRequest="500">
+							<Label Text="CSI30:"/>
+							<Entry Text="{Binding Csi30Threshold}" Margin="0,10,0,0"/>
+							<Label Text="CSI50:"/>
+							<Entry Text="{Binding Csi50Threshold}" Margin="0,10,0,0"/>
+							<Label Text="CSI100:"/>
+							<Entry Text="{Binding Csi100Threshold}" Margin="0,10,0,0"/>
+							<Label Text="MOD-CSI100:"/>
+							<Entry Text="{Binding ModCSI100Threshold}" Margin="0,10,0,0" Grid.Row="10"/>
+							<Button Text="Save" BackgroundColor="#007AFF" TextColor="White" CornerRadius="5" Margin="0,0,0,0" Command="{Binding SaveThresholdsCommand}" Grid.Row="9"/>
+							<Button Text="Cancel" BackgroundColor="LightGray" TextColor="Black" CornerRadius="5" Margin="0,0,0,0" Command="{Binding CloseSettingCommand}" Grid.Row="8" />
+						</Grid>
+					</StackLayout>
 				</ContentView.Content>
 			</ContentView>
 
