@@ -34,8 +34,6 @@ namespace EpilepsyApp
 			builder.Services.AddSingleton<MonitoringViewModel>();
 			builder.Services.AddSingleton<IDecoder, DecodingByteArray>();
 
-			
-
 			return builder.Build();
 		}
 	}
