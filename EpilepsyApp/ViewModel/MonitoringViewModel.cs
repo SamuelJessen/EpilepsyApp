@@ -1,7 +1,10 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EpilepsyApp.Constants;
 using EpilepsyApp.CortrumDevice;
 using EpilepsyApp.DTO;
 using EpilepsyApp.Events;
@@ -15,6 +18,7 @@ using Plugin.BLE.Abstractions;
 using Plugin.BLE.Abstractions.Contracts;
 using Plugin.BLE.Abstractions.EventArgs;
 using SkiaSharp;
+using uPLibrary.Networking.M2Mqtt.Messages;
 
 namespace EpilepsyApp.ViewModel
 {
@@ -93,6 +97,7 @@ namespace EpilepsyApp.ViewModel
 
 
 			decoder.ECGDataReceivedEvent += HandleECGDataReceivedEvent;
+			mqttService.OnCSIReceived += HandleCSIReceivedEvent;
 		}
 
 		public ObservableCollection<ISeries> Series { get; set; }
@@ -505,6 +510,126 @@ namespace EpilepsyApp.ViewModel
 				//Todo:Her stoppes målingen
 				Started = false;
 				mqttService.StopSending();
+			}
+		}
+
+		public DateTime timeForLatestAlarm = new DateTime();
+		public int counter = 0;
+
+		private void HandleCSIReceivedEvent(object sender, MqttMsgPublishEventArgs e)
+		{
+			Thread newThread = new Thread(HandleCSI);
+			newThread.Start();
+
+			void HandleCSI()
+			{
+				string message = Encoding.UTF8.GetString(e.Message);
+
+				var CSINormMax = new int[] { 1, 1, 1, 1 };
+
+				if (e.Topic == Topics.TOPIC_processed_measurements)
+				{
+					Console.WriteLine($"Received message on topic '{e.Topic}': {message}");
+					var decodedMessage = JsonSerializer.Deserialize<PythonEcgProcessedMeasurements>(message);
+
+					var ecgAlarm = new EcgAlarm();
+
+					if (decodedMessage.CSI30 / CSINormMax[0] > 1.65)
+					{
+						ecgAlarm.CSI30Alarm = true;
+					}
+
+					else
+					{
+						ecgAlarm.CSI30Alarm = false;
+					}
+
+					if (decodedMessage.CSI50 / CSINormMax[1] > 2.15)
+					{
+						ecgAlarm.CSI50Alarm = true;
+					}
+
+					else
+					{
+						ecgAlarm.CSI50Alarm = false;
+					}
+
+					if (decodedMessage.CSI100 / CSINormMax[2] > 2.15)
+					{
+						ecgAlarm.CSI100Alarm = true;
+					}
+
+					else
+					{
+						ecgAlarm.CSI100Alarm = false;
+					}
+
+					if (decodedMessage.ModCSI100 / CSINormMax[3] > 2.15)
+					{
+						ecgAlarm.ModCSI100Alarm = true;
+					}
+
+					else
+					{
+						ecgAlarm.ModCSI100Alarm = false;
+					}
+
+					if (ecgAlarm.CSI30Alarm || ecgAlarm.CSI50Alarm || ecgAlarm.CSI100Alarm || ecgAlarm.ModCSI100Alarm)
+					{
+						ecgAlarm.Id = Guid.NewGuid();
+						ecgAlarm.AlarmTimeStamp = decodedMessage.TimeStamp;
+						ecgAlarm.PatientId = Username;
+						ecgAlarm.CSI30 = decodedMessage.CSI30;
+						ecgAlarm.CSI50 = decodedMessage.CSI50;
+						ecgAlarm.CSI100 = decodedMessage.CSI100;
+						ecgAlarm.ModCSI100 = decodedMessage.ModCSI100;
+						ecgAlarm.PatientCSIThreshold30 = CSINormMax[0];
+						ecgAlarm.PatientCSIThreshold50 = CSINormMax[1];
+						ecgAlarm.PatientCSIThreshold100 = CSINormMax[2];
+						ecgAlarm.PatientModCSIThreshold100 = CSINormMax[3];
+
+						if (ecgAlarm.AlarmTimeStamp.Second - timeForLatestAlarm.Second >= 90 || counter == 0)
+						{
+							counter += 1;
+							timeForLatestAlarm = ecgAlarm.AlarmTimeStamp;
+							ShowAlarm(ecgAlarm);
+						}
+
+						else
+						{
+							Debug.WriteLine("An alarmed has already occured within last 1.5 min");
+						}
+
+
+					}
+
+					else
+					{
+						Debug.WriteLine("No alarm");
+					}
+				}
+			}
+		}
+
+		private void ShowAlarm(EcgAlarm ecgAlarm)
+		{
+			Device.BeginInvokeOnMainThread(async () =>
+			{
+				await Show(ecgAlarm);
+			});
+
+		}
+
+		private async Task Show(EcgAlarm ecgAlarm)
+		{
+			Debug.WriteLine("DisplayAlert should have been shown");
+			try
+			{
+				await Shell.Current.DisplayAlert("Alarm!", "Found on: CSI30-" + ecgAlarm.CSI30Alarm.ToString() + ", CSI50-" + ecgAlarm.CSI50Alarm.ToString() + ", CSI100-" + ecgAlarm.CSI100Alarm.ToString() + ", ModCSI100-" + ecgAlarm.ModCSI100Alarm.ToString(), "OK");
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine("Exception occurred while displaying alert: " + ex.Message);
 			}
 		}
 	}

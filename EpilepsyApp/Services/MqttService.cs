@@ -19,53 +19,16 @@ namespace EpilepsyApp.Services
 		void StartSending(string userId);
 		void StopSending();
 
+		// Event triggered when a message is received
+		public event EventHandler<MqttMsgPublishEventArgs> OnCSIReceived;
+
 	}
-
-	class MqttServiceMock : IMQTTService
-	{
-		public MqttServiceMock()
-		{
-			Debug.WriteLine("MetodH: MqttServiceMock");
-
-		}
-		public void CloseConncetion()
-		{
-			Debug.WriteLine("MetodH: CloseConncetion");
-		}
-
-		public void OpenConncetion()
-		{
-			Debug.WriteLine("MetodH: OpenConncetion");
-		}
-
-		//public void PublishMetaData(UserDataDTO data)
-		//{
-		//	Debug.WriteLine("MetodH: PublishMetaData");
-		//}
-
-		public void Publish_RawData(ECGBatchSeriesData data)
-		{
-			Debug.WriteLine("MetodH: Publish_RawData");
-		}
-
-		public void StartSending(string userId)
-		{
-			Debug.WriteLine("MetodH: StartSending");
-		}
-
-		public void StopSending()
-		{
-			Debug.WriteLine("MetodH: StopSending");
-		}
-	}
-
-
 
 	class MqttService : IMQTTService
 	{
 
-		private readonly MqttClient client;
-		private readonly string clientId;
+		public MqttClient client;
+		public string clientId;
 		public MqttClient Client => client;
 
 		private bool started;
@@ -76,6 +39,8 @@ namespace EpilepsyApp.Services
 			set { started = value; }
 		}
 
+		// Event triggered when a message is received
+		public event EventHandler<MqttMsgPublishEventArgs> OnCSIReceived;
 
 		public MqttService()
 		{
@@ -84,6 +49,8 @@ namespace EpilepsyApp.Services
 			clientId = Guid.NewGuid().ToString();
 			Debug.WriteLine("Clientversion: " + client.ProtocolVersion);
 			OpenConncetion();
+
+			client.MqttMsgPublishReceived += CSIReceived;
 		}
 
 
@@ -95,21 +62,10 @@ namespace EpilepsyApp.Services
 			}
 		}
 
-		//This code runs when a message is received
-		void client_MqttMsgPublishReceived(object sender, MqttMsgPublishEventArgs e)
+		private async void CSIReceived(object sender, MqttMsgPublishEventArgs e)
 		{
-			string topic = e.Topic;
-
-			//Switch case to handle messages different topics
-			switch (topic)
-			{
-				case Topics.TOPIC_measurements:
-					//TODO Handle status from CSSURE
-					break;
-				default:
-					Debug.WriteLine("Received message from unhandled topic: " + e.Topic + " Message: " + e.Message);
-					break;
-			}
+			// Trigger event or update UI with the received message
+			OnCSIReceived?.Invoke(this, e);
 		}
 
 		//This code runs when the client has subscribed to a topic
@@ -118,15 +74,12 @@ namespace EpilepsyApp.Services
 			Debug.WriteLine("Subscribed to topic: " + e.MessageId);
 		}
 
-		public void OpenConncetion()
+		public async void OpenConncetion()
 		{
 			try
 			{
-
 				if (!Client.IsConnected)
 				{
-					client.MqttMsgPublishReceived += client_MqttMsgPublishReceived;
-
 					client.MqttMsgSubscribed += client_MqttMsqSubsribed;
 
 					//client.Connect(clientId);
@@ -135,6 +88,7 @@ namespace EpilepsyApp.Services
 						);
 
 					client.Subscribe(new string[] { Topics.TOPIC_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE });
+					client.Subscribe(new string[] { Topics.TOPIC_processed_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE });
 					//Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes(""));
 				}
 			}
@@ -185,5 +139,6 @@ namespace EpilepsyApp.Services
 		{
 			Started = false;
 		}
+
 	}
 }

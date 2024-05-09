@@ -15,7 +15,7 @@ namespace EpilepsyApp.Services
 		private readonly IMQTTService mqttService;
 
 		// Buffering
-		private int nBufferSamples = 252 * 20; //45360 samples
+		private int nBufferSamples = 250 * 20; //45360 samples
 		private ECGBatchSeriesData bufferedECG = new ECGBatchSeriesData()
 		{
 			EcgRawBytes = new List<sbyte[]>(),
