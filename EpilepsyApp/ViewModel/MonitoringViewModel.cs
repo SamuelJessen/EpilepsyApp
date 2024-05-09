@@ -4,6 +4,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EpilepsyApp.CortrumDevice;
 using EpilepsyApp.DTO;
+using EpilepsyApp.Events;
+using EpilepsyApp.Models;
 using EpilepsyApp.Services;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
@@ -31,7 +33,6 @@ namespace EpilepsyApp.ViewModel
 		public BLEdevice BleDevice { get; set; } //This is the device that is selected in the UI
 		public IService EKGservice { get; private set; }
 		public ICharacteristic EKGCharacteristic { get; private set; }
-		private bool _measurementIsStarted { get; set; }
 		private ObservableCollection<EKGSampleDTO> _ekgSamples = new ObservableCollection<EKGSampleDTO>();
 		public ObservableCollection<EKGSampleDTO> EKGSamples { get { return _ekgSamples; } set { _ekgSamples = value; } }
 		private readonly IDecoder decoder;
@@ -45,23 +46,41 @@ namespace EpilepsyApp.ViewModel
 		} //This is the list of devices that is shown in the UI
 		private ObservableCollection<BLEdevice> _listOfDeviceCandidates = new ObservableCollection<BLEdevice>();
 
-		public MonitoringViewModel(BLEservice ble, IDecoder decoder)
+		public IMQTTService mqttService { get; set; }
+		public IRawDataService rawDataService { get; set; }
+		public bool Started { get; set; }
+
+		private readonly string StartText = "Start monitoring";
+		private readonly string StopText = "Stop monitoring";
+
+		[ObservableProperty] string startbtntext;
+		[ObservableProperty] bool scanning;
+		[ObservableProperty] string scanningtext;
+		[ObservableProperty] bool scanningBtnVisble;
+
+		public MonitoringViewModel(BLEservice ble, IDecoder decoder, IMQTTService mqttClient, IRawDataService rawDataService)
 		{
 			BLEservice = ble;
 			this.decoder = decoder;
+			mqttService = mqttClient;
+			this.rawDataService = rawDataService;
 
 			ecgChannel = "ECG Channel 1";
+			Startbtntext = StartText;
+			Scanning = false;
+			Scanningtext = "Connect to device";
+			ScanningBtnVisble = true;
 
 			Series = new ObservableCollection<ISeries>
-		 {
-			new LineSeries<DateTimePoint>
 			{
-			   Values = _values,
-			   Fill = null,
-			   GeometryFill = null,
-			   GeometryStroke = null
-			}
-		 };
+				new LineSeries<DateTimePoint>
+				{
+					Values = _values,
+					Fill = null,
+					GeometryFill = null,
+					GeometryStroke = null
+				}
+			};
 
 			_customAxis = new DateTimeAxis(TimeSpan.FromSeconds(1), Formatter)
 			{
@@ -72,7 +91,8 @@ namespace EpilepsyApp.ViewModel
 
 			XAxes = new Axis[] { _customAxis };
 
-			_ = ReadData();
+
+			decoder.ECGDataReceivedEvent += HandleECGDataReceivedEvent;
 		}
 
 		public ObservableCollection<ISeries> Series { get; set; }
@@ -81,30 +101,30 @@ namespace EpilepsyApp.ViewModel
 
 		public object Sync { get; } = new object();
 
-		public bool IsReading { get; set; } = true;
+		public object LockECGSamples { get; } = new object();
 
-		private async Task ReadData()
-		{
-			// to keep this sample simple, we run the next infinite loop 
-			// in a real application you should stop the loop/task when the view is disposed 
+		//private async Task ReadData()
+		//{
+		//	// to keep this sample simple, we run the next infinite loop 
+		//	// in a real application you should stop the loop/task when the view is disposed 
 
-			while (IsReading)
-			{
-				await Task.Delay(100);
+		//	//while (IsReading)
+		//	//{
+		//	//	await Task.Delay(100);
 
-				// Because we are updating the chart from a different thread 
-				// we need to use a lock to access the chart data. 
-				// this is not necessary if your changes are made in the UI thread. 
-				lock (Sync)
-				{
-					_values.Add(new DateTimePoint(DateTime.Now, _random.Next(0, 10)));
-					if (_values.Count > 250) _values.RemoveAt(0);
+		//	//	// Because we are updating the chart from a different thread 
+		//	//	// we need to use a lock to access the chart data. 
+		//	//	// this is not necessary if your changes are made in the UI thread. 
+		//	//	lock (Sync)
+		//	//	{
+		//	//		_values.Add(new DateTimePoint(DateTime.Now, _random.Next(0, 10)));
+		//	//		if (_values.Count > 250) _values.RemoveAt(0);
 
-					// we need to update the separators every time we add a new point 
-					_customAxis.CustomSeparators = GetSeparators();
-				}
-			}
-		}
+		//	//		// we need to update the separators every time we add a new point 
+		//	//		_customAxis.CustomSeparators = GetSeparators();
+		//	//	}
+		//	//}
+		//}
 
 		private double[] GetSeparators()
 		{
@@ -115,8 +135,8 @@ namespace EpilepsyApp.ViewModel
 			now.AddSeconds(-25).Ticks,
 			now.AddSeconds(-20).Ticks,
 			now.AddSeconds(-15).Ticks,
-			now.AddSeconds(-10).Ticks,
 			now.AddSeconds(-5).Ticks,
+			now.AddSeconds(-2).Ticks,
 			now.Ticks
 			};
 		}
@@ -145,6 +165,9 @@ namespace EpilepsyApp.ViewModel
 
 		public async void Scan()
 		{
+			Scanning = true;
+			Scanningtext = "Connecting...";
+
 			CheckBluetoothAvailabilityAsync();
 
 			try
@@ -157,16 +180,16 @@ namespace EpilepsyApp.ViewModel
 				}
 
 #if ANDROID
-            PermissionStatus permissionStatus = await BLEservice.CheckBluetoothPermissions();
-            if (permissionStatus != PermissionStatus.Granted)
-            {
-                permissionStatus = await BLEservice.RequestBluetoothPermissions();
-                if (permissionStatus != PermissionStatus.Granted)
-                {
-                    await Shell.Current.DisplayAlert($"Bluetooth LE permissions", $"Bluetooth LE permissions are not granted.", "OK");
-                    return;
-                }
-            }
+				PermissionStatus permissionStatus = await BLEservice.CheckBluetoothPermissions();
+				if (permissionStatus != PermissionStatus.Granted)
+				{
+					permissionStatus = await BLEservice.RequestBluetoothPermissions();
+					if (permissionStatus != PermissionStatus.Granted)
+					{
+						await Shell.Current.DisplayAlert($"Bluetooth LE permissions", $"Bluetooth LE permissions are not granted.", "OK");
+						return;
+					}
+				}
 #elif IOS
 #elif WINDOWS
 #endif
@@ -198,11 +221,6 @@ namespace EpilepsyApp.ViewModel
 					{
 						ListOfDeviceCandidates.Add(deviceCandidate); //add the found devices to the global list for the viewmodel
 					}
-					//TODO: Den connecter direkte til det første device den finder, bør laves om så man selv skal udvælge det
-					//if (ListOfDeviceCandidates.Count >= 1)
-					//{
-					//    await ConnectToDeviceCandidateAsync(ListOfDeviceCandidates.First());
-					//}
 
 
 				}
@@ -251,6 +269,11 @@ namespace EpilepsyApp.ViewModel
 			if (ListOfDeviceCandidates.Count == 0)
 			{
 				await BLEservice.ShowToastAsync("BLE Error", $"Unable to find nearby Bluetooth LE devices. Try again.");
+
+				Scanning = false;
+				Scanningtext = "Connect to device";
+				ScanningBtnVisble = true;
+
 			}
 
 			else if (ListOfDeviceCandidates.Count == 1)
@@ -270,6 +293,10 @@ namespace EpilepsyApp.ViewModel
 					ConnectToDeviceCandidateAsync(ListOfDeviceCandidates[1]);
 				}
 			}
+
+			Scanning = false;
+			Scanningtext = "Connect to device";
+			ScanningBtnVisble = false;
 		}
 
 		private async Task ConnectToDeviceCandidateAsync(BLEdevice deviceCandidate)
@@ -363,24 +390,38 @@ namespace EpilepsyApp.ViewModel
 		{
 			try
 			{
-				if (_measurementIsStarted == false) //start measurement button has not been clicked yet
+				var bytes = e.Characteristic.Value;//byte array, with raw data to be sent to CSSURE
+				sbyte[] bytessigned = Array.ConvertAll(bytes, x => unchecked((sbyte)x));
+				var time = DateTime.Now;
+
+				// Mangler noget her, der sørger for der kun decodes, når appen er åben
+				var decoded_data = decoder.DecodeBytes(bytessigned);
+
+				EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, TimeStamp = time };
+
+				var ecg_series = rawDataService.ProcessData(item, Started);
+
+				if (ecg_series != null)
 				{
-					return;
+					Debug.WriteLine("First digit: " + decoded_data.ECGChannel1[0].ToString());
+					Debug.WriteLine("Second digit: " + decoded_data.ECGChannel1[1].ToString());
+					Debug.WriteLine("Third digit: " + decoded_data.ECGChannel1[2].ToString());
+					Debug.WriteLine("Fourth digit: " + decoded_data.ECGChannel1[3].ToString());
+					Debug.WriteLine("Length: " + decoded_data.ECGChannel1.Length.ToString());
+					DateTime now = DateTime.Now;
+					Debug.WriteLine("First digit lastbytearray: " + bytessigned[0].ToString());
+					Debug.WriteLine("Second digit bytearray: " + bytessigned[1].ToString());
+					Debug.WriteLine("Third digit bytearray: " + bytessigned[2].ToString());
+					Debug.WriteLine("Fourth digit bytearray: " + bytessigned[3].ToString());
+					Debug.WriteLine("ECG data received: " + now.ToString("HH:mm:ss.fff"));
+					Debug.WriteLine("Length bytearray: " + ecg_series.EcgRawBytes.Count.ToString());
+					Debug.WriteLine("First digit bytearray: " + ecg_series.EcgRawBytes[0][0].ToString());
+					Debug.WriteLine("Second digit bytearray: " + ecg_series.EcgRawBytes[0][1].ToString());
+					Debug.WriteLine("Third digit bytearray: " + ecg_series.EcgRawBytes[0][2].ToString());
+					Debug.WriteLine("Fourth digit bytearray: " + ecg_series.EcgRawBytes[0][3].ToString());
+					sendData(ecg_series);
 				}
-				else //start measurement button is clicked and text should now be "Stop measurement"
-				{
-					var bytes = e.Characteristic.Value;//byte array, with raw data to be sent to CSSURE
-					sbyte[] bytessigned = Array.ConvertAll(bytes, x => unchecked((sbyte)x));
-					var time = DateTimeOffset.Now.LocalDateTime;
 
-					await Task.Run(() => decoder.DecodeBytes(bytessigned));
-
-					//Add the newest sample to the list
-					EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, Timestamp = time };
-					EKGSamples.Add(item);
-
-					_ = sendDataAsync(item);
-				}
 			}
 			catch (Exception ex)
 			{
@@ -388,11 +429,83 @@ namespace EpilepsyApp.ViewModel
 			}
 		}
 
-		private async Task sendDataAsync(EKGSampleDTO item)
+		private void sendData(ECGBatchSeriesData item)
 		{
-
-			//await Task.Run(() => mqttService.Publish_RawData(item));
+			mqttService.Publish_RawData(item);
 		}
 
+		private void HandleECGDataReceivedEvent(object sender, ECGDataReceivedEventArgs e)
+		{
+			lock (Sync)
+			{
+				if (_values.Count >= 120)
+				{
+					lock (LockECGSamples)
+					{
+						try
+						{
+							_values.RemoveAt(0);
+							_values.RemoveAt(0);
+						}
+						catch (Exception exp)
+						{
+							Debug.WriteLine(exp.Message + ": removing from ECGSamples failed in MeasurementPageViewModel, ECGSamples count: " + _values.Count);
+						}
+					}
+				}
+				try
+				{
+					int ecg1 = (e.ECGBatch.ECGChannel1[0] + e.ECGBatch.ECGChannel1[1] + e.ECGBatch.ECGChannel1[2] + e.ECGBatch.ECGChannel1[3] + e.ECGBatch.ECGChannel1[4] + e.ECGBatch.ECGChannel1[5]) / 6;
+					int ecg2 = (e.ECGBatch.ECGChannel1[6] + e.ECGBatch.ECGChannel1[7] + e.ECGBatch.ECGChannel1[8] + e.ECGBatch.ECGChannel1[9] + e.ECGBatch.ECGChannel1[10] + e.ECGBatch.ECGChannel1[11]) / 6;
+
+					_values.Add(new DateTimePoint(DateTime.Now, ecg1));
+					_values.Add(new DateTimePoint(DateTime.Now, ecg2));
+
+					//if (_values.Count > 100) _values.RemoveAt(0);
+
+					// we need to update the separators every time we add a new point 
+					_customAxis.CustomSeparators = GetSeparators();
+
+				}
+				catch (Exception ex)
+				{
+					Debug.WriteLine(ex.Message + ": Adding to ECGSamples failed in MeasurementPageViewModel, ECGSamples count: " + _values.Count);
+				}
+			}
+		}
+
+		[ICommand]
+		async Task OnStartMeasurementClicked()
+		{
+			if (Startbtntext == StartText)
+			{
+				//Todo:Her startes målingen
+				var ble = BLEservice;
+				Started = true;
+				if (ble.DeviceInterface == null)
+				{
+					await Application.Current.MainPage.DisplayAlert("No device connected", "Go back and connect to a device", "OK");
+
+				}
+				else
+				{
+					//ECGSamples = new ObservableCollection<ECGGraph>();
+					//OnStartMeasurementEvent(new StartMeasurementEventArgs { MeasurementIsStarted = true });
+					//UserID = await SecureStorage.Default.GetAsync("UserID");
+					//_ = OnSendPersonalMetadataAsync();
+					//StartBtnText = StopText;
+					Startbtntext = StopText;
+					mqttService.StartSending(Username);
+				}
+			}
+
+			else
+			{
+				Startbtntext = StartText;
+				//Todo:Her stoppes målingen
+				Started = false;
+				mqttService.StopSending();
+			}
+		}
 	}
 }
