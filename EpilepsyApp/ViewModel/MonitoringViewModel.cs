@@ -651,6 +651,7 @@ namespace EpilepsyApp.ViewModel
 							counter += 1;
 							timeForLatestAlarm = ecgAlarm.AlarmTimeStamp;
 							ShowAlarm(ecgAlarm);
+							_apiService.PostAlarm(ecgAlarm);
 						}
 
 						else
