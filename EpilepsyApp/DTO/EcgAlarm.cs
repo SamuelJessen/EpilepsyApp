@@ -2,11 +2,11 @@
 public class EcgAlarm
 {
 	public Guid Id { get; set; }
-	public string PatientId { get; set; }
-	public float CSI30 { get; set; }
-	public float CSI50 { get; set; }
-	public float CSI100 { get; set; }
-	public float ModCSI100 { get; set; }
+	public string PatientID { get; set; }
+	public int CSI30 { get; set; }
+	public int CSI50 { get; set; }
+	public int CSI100 { get; set; }
+	public int ModCSI100 { get; set; }
 	public int PatientCSIThreshold30 { get; set; }
 	public int PatientCSIThreshold50 { get; set; }
 	public int PatientCSIThreshold100 { get; set; }

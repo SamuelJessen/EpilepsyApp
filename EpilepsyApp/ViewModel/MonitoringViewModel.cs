@@ -97,22 +97,20 @@ namespace EpilepsyApp.ViewModel
 			_customAxis = new DateTimeAxis(TimeSpan.FromSeconds(1), Formatter)
 			{
 				CustomSeparators = GetSeparators(),
-				AnimationsSpeed = TimeSpan.FromMilliseconds(0),
+				AnimationsSpeed = TimeSpan.FromMilliseconds(0.5),
 				SeparatorsPaint = new SolidColorPaint(SKColors.Black.WithAlpha(100))
 			};
 
 			XAxes = new Axis[] { _customAxis };
 
 			_decoder.ECGDataReceivedEvent += HandleECGDataReceivedEvent;
-
-
 			_mqttService.OnCSIReceived += HandleCSIReceivedEvent;
 		}
 
 		private async Task Initialize()
 		{
 			var patientResponse = await _apiService.GetPatient(PatientID);
-			if(patientResponse == null)
+			if (patientResponse == null)
 			{
 				await Shell.Current.DisplayAlert("Error", "Patient not found", "OK");
 			}
@@ -271,6 +269,9 @@ namespace EpilepsyApp.ViewModel
 
 					if (newlyFoundDevices.Count == 0)
 					{
+						Scanning = false;
+						Scanningtext = "Connect to device";
+						ScanningBtnVisble = true;
 						await BLEservice.ShowToastAsync("BLE Error", $"Unable to find nearby Bluetooth LE devices. Try again.");
 					}
 
@@ -289,6 +290,9 @@ namespace EpilepsyApp.ViewModel
 				}
 				catch (Exception ex)
 				{
+					Scanning = false;
+					Scanningtext = "Connect to device";
+					ScanningBtnVisble = true;
 					Debug.WriteLine($"Unable to get nearby Bluetooth LE devices: {ex.Message}");
 					await Shell.Current.DisplayAlert($"Unable to get nearby Bluetooth LE devices", $"{ex.Message}.", "OK");
 				}
@@ -322,6 +326,9 @@ namespace EpilepsyApp.ViewModel
 			}
 			catch (Exception ex)
 			{
+				Scanning = false;
+				Scanningtext = "Connect to device";
+				ScanningBtnVisble = true;
 				Debug.WriteLine($"Unable to check Bluetooth availability: {ex.Message}");
 				await Shell.Current.DisplayAlert($"Unable to check Bluetooth availability", $"{ex.Message}.", "OK");
 			}
@@ -331,12 +338,10 @@ namespace EpilepsyApp.ViewModel
 		{
 			if (ListOfDeviceCandidates.Count == 0)
 			{
-				await BLEservice.ShowToastAsync("BLE Error", $"Unable to find nearby Bluetooth LE devices. Try again.");
-
 				Scanning = false;
 				Scanningtext = "Connect to device";
 				ScanningBtnVisble = true;
-
+				await BLEservice.ShowToastAsync("BLE Error", $"Unable to find nearby Bluetooth LE devices. Try again.");
 			}
 
 			else if (ListOfDeviceCandidates.Count == 1)
@@ -436,12 +441,18 @@ namespace EpilepsyApp.ViewModel
 				}
 				catch (Exception ex)
 				{
+					Scanning = false;
+					Scanningtext = "Connect to device";
+					ScanningBtnVisble = true;
 					Debug.WriteLine($"Unable to connect to {BLEservice.BleDevice.Name} {BLEservice.BleDevice.Id}: {ex.Message}.");
 					await Shell.Current.DisplayAlert($"{BLEservice.BleDevice.Name}", $"Unable to connect to {BLEservice.BleDevice.Name}.", "OK");
 				}
 			}
 			catch (Exception ex2)
 			{
+				Scanning = false;
+				Scanningtext = "Connect to device";
+				ScanningBtnVisble = true;
 				Debug.WriteLine($"Error during: ConnectToDeviceCandidateAsync: {ex2.Message}.");
 				//await Shell.Current.DisplayAlert($"{BLEservice.BleDevice.Name}", $"Unable to connect to {BLEservice.BleDevice.Name}.", "OK");
 			}
@@ -459,10 +470,14 @@ namespace EpilepsyApp.ViewModel
 
 				// Mangler noget her, der sørger for der kun decodes, når appen er åben
 				var decoded_data = _decoder.DecodeBytes(bytessigned);
+				var ecg_series = new ECGBatchSeriesData();
 
-				EKGSampleDTO item = new EKGSampleDTO { RawBytes = bytessigned, TimeStamp = time };
+				EKGSampleDTO item = new EKGSampleDTO { PatientID = Patient.Id, RawBytes = bytessigned, TimeStamp = time };
 
-				var ecg_series = _rawDataService.ProcessData(item, Started);
+				await Task.Run(async () =>
+				{
+					ecg_series = _rawDataService.ProcessData(item, Started);
+				});
 
 				if (ecg_series != null)
 				{
@@ -497,18 +512,30 @@ namespace EpilepsyApp.ViewModel
 			_mqttService.Publish_RawData(item);
 		}
 
+		public int valueCounter = 0;
+		public List<DateTimePoint> intermediateValues = new List<DateTimePoint>();
 		private void HandleECGDataReceivedEvent(object sender, ECGDataReceivedEventArgs e)
 		{
 			lock (Sync)
 			{
-				if (_values.Count >= 120)
+				if (_values.Count >= 21 * 10)
 				{
 					lock (LockECGSamples)
 					{
 						try
 						{
-							_values.RemoveAt(0);
-							_values.RemoveAt(0);
+							//_values.RemoveAt(0);
+							//_values.RemoveAt(0);
+
+							_values.Clear();
+
+							int ecg1 = (e.ECGBatch.ECGChannel1[0] + e.ECGBatch.ECGChannel1[1] + e.ECGBatch.ECGChannel1[2] + e.ECGBatch.ECGChannel1[3] + e.ECGBatch.ECGChannel1[4] + e.ECGBatch.ECGChannel1[5]) / 6;
+							//int ecg2 = (e.ECGBatch.ECGChannel1[6] + e.ECGBatch.ECGChannel1[7] + e.ECGBatch.ECGChannel1[8] + e.ECGBatch.ECGChannel1[9] + e.ECGBatch.ECGChannel1[10] + e.ECGBatch.ECGChannel1[11]) / 6;
+
+							_values.Add(new DateTimePoint(DateTime.Now, ecg1));
+							//_values.Add(new DateTimePoint(DateTime.Now, ecg2));
+
+							_customAxis.CustomSeparators = GetSeparators();
 						}
 						catch (Exception exp)
 						{
@@ -518,16 +545,30 @@ namespace EpilepsyApp.ViewModel
 				}
 				try
 				{
-					int ecg1 = (e.ECGBatch.ECGChannel1[0] + e.ECGBatch.ECGChannel1[1] + e.ECGBatch.ECGChannel1[2] + e.ECGBatch.ECGChannel1[3] + e.ECGBatch.ECGChannel1[4] + e.ECGBatch.ECGChannel1[5]) / 6;
-					int ecg2 = (e.ECGBatch.ECGChannel1[6] + e.ECGBatch.ECGChannel1[7] + e.ECGBatch.ECGChannel1[8] + e.ECGBatch.ECGChannel1[9] + e.ECGBatch.ECGChannel1[10] + e.ECGBatch.ECGChannel1[11]) / 6;
+					int ecg1 = (e.ECGBatch.ECGChannel1[0] + e.ECGBatch.ECGChannel1[1] + e.ECGBatch.ECGChannel1[2] + e.ECGBatch.ECGChannel1[3] + e.ECGBatch.ECGChannel1[4] + e.ECGBatch.ECGChannel1[5] + e.ECGBatch.ECGChannel1[6] + e.ECGBatch.ECGChannel1[7] + e.ECGBatch.ECGChannel1[8] + e.ECGBatch.ECGChannel1[9] + e.ECGBatch.ECGChannel1[10] + e.ECGBatch.ECGChannel1[11]) / 12;
+					//int ecg2 = (e.ECGBatch.ECGChannel1[6] + e.ECGBatch.ECGChannel1[7] + e.ECGBatch.ECGChannel1[8] + e.ECGBatch.ECGChannel1[9] + e.ECGBatch.ECGChannel1[10] + e.ECGBatch.ECGChannel1[11]) / 6;
 
-					_values.Add(new DateTimePoint(DateTime.Now, ecg1));
-					_values.Add(new DateTimePoint(DateTime.Now, ecg2));
+					var numberOfSamples = 3;
 
-					//if (_values.Count > 100) _values.RemoveAt(0);
+					if (intermediateValues.Count < numberOfSamples)
+					{
+						intermediateValues.Add(new DateTimePoint(DateTime.Now, ecg1));
+					}
+
+					else
+					{
+						intermediateValues.Add(new DateTimePoint(DateTime.Now, ecg1));
+						_values.AddRange(intermediateValues);
+						_customAxis.CustomSeparators = GetSeparators();
+						intermediateValues.Clear();
+					}
+
+
+					//_values.Add(new DateTimePoint(DateTime.Now, ecg1));
+					//_values.Add(new DateTimePoint(DateTime.Now, ecg2));
 
 					// we need to update the separators every time we add a new point 
-					_customAxis.CustomSeparators = GetSeparators();
+
 
 				}
 				catch (Exception ex)
@@ -581,91 +622,99 @@ namespace EpilepsyApp.ViewModel
 
 			void HandleCSI()
 			{
-				string message = Encoding.UTF8.GetString(e.Message);
-
-				var CSINormMax = new int[] { 1, 1, 1, 1 };
-
-				if (e.Topic == Topics.TOPIC_processed_measurements)
+				try
 				{
-					Console.WriteLine($"Received message on topic '{e.Topic}': {message}");
-					var decodedMessage = JsonSerializer.Deserialize<PythonEcgProcessedMeasurements>(message);
+					string message = Encoding.UTF8.GetString(e.Message);
 
-					var ecgAlarm = new EcgAlarm();
+					var CSINormMax = new int[] { 1, 1, 1, 1 };
 
-					if (decodedMessage.CSI30 / Csi30Threshold > 1.65)
+					if (e.Topic == Topics.TOPIC_processed_measurements)
 					{
-						ecgAlarm.CSI30Alarm = true;
-					}
+						//Debug.WriteLine($"Received message on topic '{e.Topic}': {message}");
+						var decodedMessage = JsonSerializer.Deserialize<PythonEcgProcessedMeasurements>(message);
 
-					else
-					{
-						ecgAlarm.CSI30Alarm = false;
-					}
+						var ecgAlarm = new EcgAlarm();
 
-					if (decodedMessage.CSI50 / Csi50Threshold > 2.15)
-					{
-						ecgAlarm.CSI50Alarm = true;
-					}
-
-					else
-					{
-						ecgAlarm.CSI50Alarm = false;
-					}
-
-					if (decodedMessage.CSI100 / Csi100Threshold > 2.15)
-					{
-						ecgAlarm.CSI100Alarm = true;
-					}
-
-					else
-					{
-						ecgAlarm.CSI100Alarm = false;
-					}
-
-					if (decodedMessage.ModCSI100 / ModCSI100Threshold > 2.15)
-					{
-						ecgAlarm.ModCSI100Alarm = true;
-					}
-
-					else
-					{
-						ecgAlarm.ModCSI100Alarm = false;
-					}
-
-					if (ecgAlarm.CSI30Alarm || ecgAlarm.CSI50Alarm || ecgAlarm.CSI100Alarm || ecgAlarm.ModCSI100Alarm)
-					{
-						ecgAlarm.Id = Guid.NewGuid();
-						ecgAlarm.AlarmTimeStamp = decodedMessage.TimeStamp;
-						ecgAlarm.PatientId = decodedMessage.PatientID;
-						ecgAlarm.CSI30 = decodedMessage.CSI30;
-						ecgAlarm.CSI50 = decodedMessage.CSI50;
-						ecgAlarm.CSI100 = decodedMessage.CSI100;
-						ecgAlarm.ModCSI100 = decodedMessage.ModCSI100;
-						ecgAlarm.PatientCSIThreshold30 = CSINormMax[0];
-						ecgAlarm.PatientCSIThreshold50 = CSINormMax[1];
-						ecgAlarm.PatientCSIThreshold100 = CSINormMax[2];
-						ecgAlarm.PatientModCSIThreshold100 = CSINormMax[3];
-
-						if (ecgAlarm.AlarmTimeStamp.Second - timeForLatestAlarm.Second >= 90 || counter == 0)
+						if (decodedMessage.CSI30 / Csi30Threshold > 1.65)
 						{
-							counter += 1;
-							timeForLatestAlarm = ecgAlarm.AlarmTimeStamp;
-							ShowAlarm(ecgAlarm);
-							_apiService.PostAlarm(ecgAlarm);
+							ecgAlarm.CSI30Alarm = true;
 						}
 
 						else
 						{
-							Debug.WriteLine("An alarmed has already occured within last 1.5 min");
+							ecgAlarm.CSI30Alarm = false;
 						}
 
+						if (decodedMessage.CSI50 / Csi50Threshold > 2.15)
+						{
+							ecgAlarm.CSI50Alarm = true;
+						}
 
-					}
+						else
+						{
+							ecgAlarm.CSI50Alarm = false;
+						}
 
-					else
-					{
-						Debug.WriteLine("No alarm");
+						if (decodedMessage.CSI100 / Csi100Threshold > 2.15)
+						{
+							ecgAlarm.CSI100Alarm = true;
+						}
+
+						else
+						{
+							ecgAlarm.CSI100Alarm = false;
+						}
+
+						if (decodedMessage.ModCSI100 / ModCSI100Threshold > 2.15)
+						{
+							ecgAlarm.ModCSI100Alarm = true;
+						}
+
+						else
+						{
+							ecgAlarm.ModCSI100Alarm = false;
+						}
+
+						if (ecgAlarm.CSI30Alarm || ecgAlarm.CSI50Alarm || ecgAlarm.CSI100Alarm || ecgAlarm.ModCSI100Alarm)
+						{
+							ecgAlarm.Id = Guid.NewGuid();
+							ecgAlarm.AlarmTimeStamp = decodedMessage.TimeStamp;
+							ecgAlarm.PatientID = decodedMessage.PatientID;
+							ecgAlarm.CSI30 = Convert.ToInt32(decodedMessage.CSI30);
+							ecgAlarm.CSI50 = Convert.ToInt32(decodedMessage.CSI50);
+							ecgAlarm.CSI100 = Convert.ToInt32(decodedMessage.CSI100);
+							ecgAlarm.ModCSI100 = Convert.ToInt32(decodedMessage.ModCSI100);
+							ecgAlarm.PatientCSIThreshold30 = Csi30Threshold;
+							ecgAlarm.PatientCSIThreshold50 = Csi50Threshold;
+							ecgAlarm.PatientCSIThreshold100 = Csi100Threshold;
+							ecgAlarm.PatientModCSIThreshold100 = ModCSI100Threshold;
+
+							if ((ecgAlarm.AlarmTimeStamp - timeForLatestAlarm).TotalSeconds >= 90 || counter == 0)
+							{
+								counter += 1;
+								timeForLatestAlarm = ecgAlarm.AlarmTimeStamp;
+								ShowAlarm(ecgAlarm);
+								_apiService.PostAlarm(ecgAlarm);
+							}
+
+							else
+							{
+								Debug.WriteLine("An alarmed has already occured within last 1.5 min");
+							}
+
+
+						}
+
+						else
+						{
+							Debug.WriteLine("No alarm");
+						}
 					}
+				}
+
+				catch (Exception ex)
+				{
+					Debug.WriteLine("Exception occurred while receiving for alarm " + ex.Message);
 				}
 			}
 		}

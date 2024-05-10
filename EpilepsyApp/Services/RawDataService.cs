@@ -15,7 +15,7 @@ namespace EpilepsyApp.Services
 		private readonly IMQTTService mqttService;
 
 		// Buffering
-		private int nBufferSamples = 250 * 20; //45360 samples
+		private int nBufferSamples = 250 * 60 * 3;//45360 samples
 		private ECGBatchSeriesData bufferedECG = new ECGBatchSeriesData()
 		{
 			EcgRawBytes = new List<sbyte[]>(),
@@ -119,7 +119,7 @@ namespace EpilepsyApp.Services
 			buffer.EcgRawBytes.Add(ecgData.RawBytes);
 			buffer.TimeStamp = ecgData.TimeStamp;
 			buffer.Samples += 12;
-			buffer.PatientID = ecgData.PatientId;
+			buffer.PatientID = ecgData.PatientID;
 			newBufferReady = false;
 
 			//When buffer is full, remove first batch every 5 seconds

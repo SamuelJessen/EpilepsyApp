@@ -49,8 +49,6 @@ namespace EpilepsyApp.Services
 			clientId = Guid.NewGuid().ToString();
 			Debug.WriteLine("Clientversion: " + client.ProtocolVersion);
 			OpenConncetion();
-
-			client.MqttMsgPublishReceived += CSIReceived;
 		}
 
 
@@ -80,6 +78,7 @@ namespace EpilepsyApp.Services
 			{
 				if (!Client.IsConnected)
 				{
+					client.MqttMsgPublishReceived += CSIReceived;
 					client.MqttMsgSubscribed += client_MqttMsqSubsribed;
 
 					//client.Connect(clientId);
@@ -87,7 +86,7 @@ namespace EpilepsyApp.Services
 						clientId: clientId
 						);
 
-					client.Subscribe(new string[] { Topics.TOPIC_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE });
+					//client.Subscribe(new string[] { Topics.TOPIC_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE });
 					client.Subscribe(new string[] { Topics.TOPIC_processed_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE });
 					//Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes(""));
 				}
