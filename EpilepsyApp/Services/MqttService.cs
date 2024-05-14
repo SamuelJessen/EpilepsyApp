@@ -87,7 +87,7 @@ namespace EpilepsyApp.Services
 						);
 
 					//client.Subscribe(new string[] { Topics.TOPIC_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE });
-					client.Subscribe(new string[] { Topics.TOPIC_processed_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE });
+					client.Subscribe(new string[] { Topics.TOPIC_processed_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE });
 					//Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes(""));
 				}
 			}

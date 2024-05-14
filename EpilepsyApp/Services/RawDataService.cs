@@ -15,7 +15,7 @@ namespace EpilepsyApp.Services
 		private readonly IMQTTService mqttService;
 
 		// Buffering
-		private int nBufferSamples = 250 * 60 * 3;//45360 samples
+		private int nBufferSamples = 252 * 60 * 2;//45360 samples
 		private ECGBatchSeriesData bufferedECG = new ECGBatchSeriesData()
 		{
 			EcgRawBytes = new List<sbyte[]>(),
@@ -121,13 +121,13 @@ namespace EpilepsyApp.Services
 			buffer.Samples += 12;
 			buffer.PatientID = ecgData.PatientID;
 			newBufferReady = false;
+			int timeForNewBuffer = 5;
 
-			//When buffer is full, remove first batch every 5 seconds
-			if (nCurrentSamples >= nBufferSamples + 252 * 5)
+			if (nCurrentSamples >= nBufferSamples + 252 * timeForNewBuffer)
 			{
 				// Remove first batch from buffer (FIFO)
-				buffer.EcgRawBytes.RemoveRange(0, 21 * 5);
-				buffer.Samples -= 12 * 21 * 5;
+				buffer.EcgRawBytes.RemoveRange(0, 21 * timeForNewBuffer);
+				buffer.Samples -= 12 * 21 * timeForNewBuffer;
 				newBufferReady = true;
 			}
 		}
