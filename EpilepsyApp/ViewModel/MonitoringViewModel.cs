@@ -1,6 +1,5 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Text;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -10,6 +9,7 @@ using EpilepsyApp.DTO;
 using EpilepsyApp.Events;
 using EpilepsyApp.Models;
 using EpilepsyApp.Services;
+using HiveMQtt.Client.Events;
 using LiveChartsCore;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
@@ -18,7 +18,6 @@ using Plugin.BLE.Abstractions;
 using Plugin.BLE.Abstractions.Contracts;
 using Plugin.BLE.Abstractions.EventArgs;
 using SkiaSharp;
-using uPLibrary.Networking.M2Mqtt.Messages;
 
 namespace EpilepsyApp.ViewModel
 {
@@ -135,29 +134,6 @@ namespace EpilepsyApp.ViewModel
 		public object Sync { get; } = new object();
 
 		public object LockECGSamples { get; } = new object();
-
-		//private async Task ReadData()
-		//{
-		//	// to keep this sample simple, we run the next infinite loop 
-		//	// in a real application you should stop the loop/task when the view is disposed 
-
-		//	//while (IsReading)
-		//	//{
-		//	//	await Task.Delay(100);
-
-		//	//	// Because we are updating the chart from a different thread 
-		//	//	// we need to use a lock to access the chart data. 
-		//	//	// this is not necessary if your changes are made in the UI thread. 
-		//	//	lock (Sync)
-		//	//	{
-		//	//		_values.Add(new DateTimePoint(DateTime.Now, _random.Next(0, 10)));
-		//	//		if (_values.Count > 250) _values.RemoveAt(0);
-
-		//	//		// we need to update the separators every time we add a new point 
-		//	//		_customAxis.CustomSeparators = GetSeparators();
-		//	//	}
-		//	//}
-		//}
 
 		private double[] GetSeparators()
 		{
@@ -468,7 +444,6 @@ namespace EpilepsyApp.ViewModel
 				sbyte[] bytessigned = Array.ConvertAll(bytes, x => unchecked((sbyte)x));
 				var time = DateTime.Now;
 
-				// Mangler noget her, der sørger for der kun decodes, når appen er åben
 				var decoded_data = _decoder.DecodeBytes(bytessigned);
 				var ecg_series = new ECGBatchSeriesData();
 
@@ -509,7 +484,7 @@ namespace EpilepsyApp.ViewModel
 
 		private void sendData(ECGBatchSeriesData item)
 		{
-			_mqttService.Publish_RawData(item);
+			_mqttService.PublishRawDataAsync(item);
 		}
 
 		public int valueCounter = 0;
@@ -524,16 +499,11 @@ namespace EpilepsyApp.ViewModel
 					{
 						try
 						{
-							//_values.RemoveAt(0);
-							//_values.RemoveAt(0);
-
 							_values.Clear();
 
 							int ecg1 = (e.ECGBatch.ECGChannel1[0] + e.ECGBatch.ECGChannel1[1] + e.ECGBatch.ECGChannel1[2] + e.ECGBatch.ECGChannel1[3] + e.ECGBatch.ECGChannel1[4] + e.ECGBatch.ECGChannel1[5]) / 6;
-							//int ecg2 = (e.ECGBatch.ECGChannel1[6] + e.ECGBatch.ECGChannel1[7] + e.ECGBatch.ECGChannel1[8] + e.ECGBatch.ECGChannel1[9] + e.ECGBatch.ECGChannel1[10] + e.ECGBatch.ECGChannel1[11]) / 6;
 
 							_values.Add(new DateTimePoint(DateTime.Now, ecg1));
-							//_values.Add(new DateTimePoint(DateTime.Now, ecg2));
 
 							_customAxis.CustomSeparators = GetSeparators();
 						}
@@ -546,7 +516,6 @@ namespace EpilepsyApp.ViewModel
 				try
 				{
 					int ecg1 = (e.ECGBatch.ECGChannel1[0] + e.ECGBatch.ECGChannel1[1] + e.ECGBatch.ECGChannel1[2] + e.ECGBatch.ECGChannel1[3] + e.ECGBatch.ECGChannel1[4] + e.ECGBatch.ECGChannel1[5] + e.ECGBatch.ECGChannel1[6] + e.ECGBatch.ECGChannel1[7] + e.ECGBatch.ECGChannel1[8] + e.ECGBatch.ECGChannel1[9] + e.ECGBatch.ECGChannel1[10] + e.ECGBatch.ECGChannel1[11]) / 12;
-					//int ecg2 = (e.ECGBatch.ECGChannel1[6] + e.ECGBatch.ECGChannel1[7] + e.ECGBatch.ECGChannel1[8] + e.ECGBatch.ECGChannel1[9] + e.ECGBatch.ECGChannel1[10] + e.ECGBatch.ECGChannel1[11]) / 6;
 
 					var numberOfSamples = 3;
 
@@ -562,14 +531,6 @@ namespace EpilepsyApp.ViewModel
 						_customAxis.CustomSeparators = GetSeparators();
 						intermediateValues.Clear();
 					}
-
-
-					//_values.Add(new DateTimePoint(DateTime.Now, ecg1));
-					//_values.Add(new DateTimePoint(DateTime.Now, ecg2));
-
-					// we need to update the separators every time we add a new point 
-
-
 				}
 				catch (Exception ex)
 				{
@@ -593,11 +554,6 @@ namespace EpilepsyApp.ViewModel
 				}
 				else
 				{
-					//ECGSamples = new ObservableCollection<ECGGraph>();
-					//OnStartMeasurementEvent(new StartMeasurementEventArgs { MeasurementIsStarted = true });
-					//UserID = await SecureStorage.Default.GetAsync("UserID");
-					//_ = OnSendPersonalMetadataAsync();
-					//StartBtnText = StopText;
 					Startbtntext = StopText;
 					_mqttService.StartSending(PatientID);
 				}
@@ -615,7 +571,7 @@ namespace EpilepsyApp.ViewModel
 		public DateTime timeForLatestAlarm = new DateTime();
 		public int counter = 0;
 
-		private void HandleCSIReceivedEvent(object sender, MqttMsgPublishEventArgs e)
+		private void HandleCSIReceivedEvent(object sender, OnMessageReceivedEventArgs e)
 		{
 			Thread newThread = new Thread(HandleCSI);
 			newThread.Start();
@@ -624,11 +580,11 @@ namespace EpilepsyApp.ViewModel
 			{
 				try
 				{
-					string message = Encoding.UTF8.GetString(e.Message);
+					string message = e.PublishMessage.PayloadAsString;
 
 					var CSINormMax = new int[] { 1, 1, 1, 1 };
 
-					if (e.Topic == Topics.TOPIC_processed_measurements)
+					if (e.PublishMessage.Topic == Topics.TOPIC_processed_measurements)
 					{
 						//Debug.WriteLine($"Received message on topic '{e.Topic}': {message}");
 						var decodedMessage = JsonSerializer.Deserialize<PythonEcgProcessedMeasurements>(message);
@@ -699,7 +655,7 @@ namespace EpilepsyApp.ViewModel
 
 							else
 							{
-								Debug.WriteLine("An alarmed has already occured within last 1.5 min");
+								Debug.WriteLine("An alarm has already occured within last 1.5 min");
 							}
 
 
