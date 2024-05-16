@@ -24,6 +24,8 @@ namespace EpilepsyApp
 #endif
 			builder.Services.AddSingleton<IMQTTService, MqttService>();
 			builder.Services.AddSingleton<IRawDataService, RawDataService>();
+			builder.Services.AddSingleton<HttpClient>();
+			builder.Services.AddSingleton<IAPIService, APIService>();
 			builder.Services.AddSingleton<BLEservice>();
 			builder.Services.AddSingleton<MainPage>();
 			builder.Services.AddSingleton<MainViewModel>();

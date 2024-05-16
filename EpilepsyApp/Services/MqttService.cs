@@ -3,187 +3,118 @@ using System.Text;
 using System.Text.Json;
 using EpilepsyApp.Constants;
 using EpilepsyApp.Models;
-using uPLibrary.Networking.M2Mqtt;
-using uPLibrary.Networking.M2Mqtt.Messages;
+using HiveMQtt.Client;
+using HiveMQtt.Client.Events;
+using HiveMQtt.Client.Options;
+using HiveMQtt.MQTT5.Types;
 
-namespace EpilepsyApp.Services
+
+namespace EpilepsyApp.Services;
+
+public interface IMQTTService
 {
+	Task OpenConnection(string userId);
+	Task CloseConnection();
+	void StartSending(string userId);
+	void StopSending();
+	Task PublishRawDataAsync(ECGBatchSeriesData data);
+	event EventHandler<OnMessageReceivedEventArgs> OnCSIReceived;
+}
 
-	public interface IMQTTService
+class MqttService : IMQTTService
+{
+	private readonly IHiveMQClient _client;
+	private bool started;
+	public event EventHandler<OnMessageReceivedEventArgs> OnCSIReceived;
+
+	public bool Started
 	{
-		void OpenConncetion();
-		void CloseConncetion();
-		void Publish_RawData(ECGBatchSeriesData data);
-		//void PublishMetaData(UserDataDTO data);
-
-		void StartSending(string userId);
-		void StopSending();
-
+		get { return started; }
+		set { started = value; }
 	}
 
-	class MqttServiceMock : IMQTTService
+	public MqttService()
 	{
-		public MqttServiceMock()
+		Started = false;
+		var options = new HiveMQClientOptions
 		{
-			Debug.WriteLine("MetodH: MqttServiceMock");
+			Host = "telemonmqtt-wxmbnq.a01.euc1.aws.hivemq.cloud",
+			Port = 8883,
+			UseTLS = true,
+			UserName = "TelemonBroker",
+			Password = "RememberTheStack123",
+			CleanStart = true
+		};
+		var client = new HiveMQClient(options);
 
-		}
-		public void CloseConncetion()
+		client.OnMessageReceived += (sender, args) =>
 		{
-			Debug.WriteLine("MetodH: CloseConncetion");
-		}
+			var message = args.PublishMessage.PayloadAsString;
+			Console.WriteLine($"Message Received: {args.PublishMessage.PayloadAsString}");
+			OnCSIReceived?.Invoke(this, args);
+		};
+		_client = client;
+	}
 
-		public void OpenConncetion()
+	public async Task OpenConnection(string userId)
+	{
+		UserId = userId;
+		Started = true;
+		await ConnectAndSubscribeAsync();
+	}
+
+	public async Task CloseConnection()
+	{
+		started = false;
+		// await _client.DisconnectAsync().ConfigureAwait(false);
+	}
+
+	public async Task PublishRawDataAsync(ECGBatchSeriesData data)
+	{
+		if (started)
 		{
-			Debug.WriteLine("MetodH: OpenConncetion");
-		}
+			data.PatientID = UserId;
+			var stringToSend = JsonSerializer.Serialize(data);
 
-		//public void PublishMetaData(UserDataDTO data)
-		//{
-		//	Debug.WriteLine("MetodH: PublishMetaData");
-		//}
+			var message = new MQTT5PublishMessage
+			{
+				Topic = Topics.TOPIC_measurements,
+				Payload = Encoding.UTF8.GetBytes(stringToSend),
+				QoS = QualityOfService.AtLeastOnceDelivery,
+			};
 
-		public void Publish_RawData(ECGBatchSeriesData data)
-		{
-			Debug.WriteLine("MetodH: Publish_RawData");
-		}
-
-		public void StartSending(string userId)
-		{
-			Debug.WriteLine("MetodH: StartSending");
-		}
-
-		public void StopSending()
-		{
-			Debug.WriteLine("MetodH: StopSending");
+			var resultPublish = _client.PublishAsync(message);
+			Debug.WriteLine($"Published: {resultPublish.Result.QoS2ReasonCode}");
 		}
 	}
 
-
-
-	class MqttService : IMQTTService
+	private async Task ConnectAndSubscribeAsync()
 	{
-
-		private readonly MqttClient client;
-		private readonly string clientId;
-		public MqttClient Client => client;
-
-		private bool started;
-
-		public bool Started
+		try
 		{
-			get { return started; }
-			set { started = value; }
+			var connectResult = await _client.ConnectAsync();
+			Debug.WriteLine($"Connected: {connectResult.ReasonString}");
+
+			var subscribeResult = await _client.SubscribeAsync(Topics.TOPIC_processed_measurements);
+			Debug.WriteLine($"Subscribed: {subscribeResult.Subscriptions}");
 		}
-
-
-		public MqttService()
+		catch (Exception ex)
 		{
-			Started = false;
-			client = new MqttClient("test.mosquitto.org");
-			clientId = Guid.NewGuid().ToString();
-			Debug.WriteLine("Clientversion: " + client.ProtocolVersion);
-			OpenConncetion();
+			Debug.WriteLine($"MQTT Client Error: {ex.Message}");
+			// Handle connection error
 		}
+	}
+	private string UserId = "Unknown";
+	public async void StartSending(string userId)
+	{
+		await OpenConnection(userId);
+		UserId = userId;
+		Started = true;
+	}
 
-
-		public void Publish(string topic, byte[] data)
-		{
-			if (Client.IsConnected)
-			{
-				client.Publish(topic, data, MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE, false);
-			}
-		}
-
-		//This code runs when a message is received
-		void client_MqttMsgPublishReceived(object sender, MqttMsgPublishEventArgs e)
-		{
-			string topic = e.Topic;
-
-			//Switch case to handle messages different topics
-			switch (topic)
-			{
-				case Topics.TOPIC_measurements:
-					//TODO Handle status from CSSURE
-					break;
-				default:
-					Debug.WriteLine("Received message from unhandled topic: " + e.Topic + " Message: " + e.Message);
-					break;
-			}
-		}
-
-		//This code runs when the client has subscribed to a topic
-		static void client_MqttMsqSubsribed(object senser, MqttMsgSubscribedEventArgs e)
-		{
-			Debug.WriteLine("Subscribed to topic: " + e.MessageId);
-		}
-
-		public void OpenConncetion()
-		{
-			try
-			{
-
-				if (!Client.IsConnected)
-				{
-					client.MqttMsgPublishReceived += client_MqttMsgPublishReceived;
-
-					client.MqttMsgSubscribed += client_MqttMsqSubsribed;
-
-					//client.Connect(clientId);
-					client.Connect(
-						clientId: clientId
-						);
-
-					client.Subscribe(new string[] { Topics.TOPIC_measurements }, new byte[] { MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE });
-					//Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes(""));
-				}
-			}
-			catch (Exception)
-			{
-
-			}
-		}
-
-		public void CloseConncetion()
-		{
-			if (Client.IsConnected)
-			{
-				Client.Disconnect();
-			}
-		}
-
-		public void Publish_RawData(ECGBatchSeriesData data)
-		{
-			if (Started)
-			{
-				data.PatientID = UserId;
-				var serialData = JsonSerializer.Serialize<ECGBatchSeriesData>(data);
-				client.Publish(Topics.TOPIC_measurements, Encoding.UTF8.GetBytes(serialData));
-
-			}
-		}
-
-		//public void PublishMetaData(UserDataDTO data)
-		//{
-		//	if (Client.IsConnected)
-		//	{
-		//		Debug.WriteLine("Sending MetaData");
-		//		var options = new JsonSerializerOptions { WriteIndented = true };
-		//		var serialData = JsonSerializer.Serialize<UserDataDTO>(data, options);
-		//		client.Publish(Topics.Topic_UserData + "/" + data.UserId, Encoding.UTF8.GetBytes(serialData), MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE, false);
-		//	}
-		//}
-
-		private string UserId = "Unknown";
-		public void StartSending(string userId)
-		{
-			UserId = userId;
-			Started = true;
-		}
-
-		public void StopSending()
-		{
-			Started = false;
-		}
+	public async void StopSending()
+	{
+		await CloseConnection().ConfigureAwait(false);
+		Started = false;
 	}
 }
